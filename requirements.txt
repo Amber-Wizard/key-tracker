@@ -6,3 +6,4 @@ plotly
 streamlit
 streamlit-authenticator
 st-gsheets-connection
+validators==0.21.1
