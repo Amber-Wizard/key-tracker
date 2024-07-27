@@ -4,4 +4,5 @@ pandas
 plotly
 streamlit
 streamlit_authenticator
+streamlit_gsheets
 uuid
