@@ -5,4 +5,4 @@ numpy==1.24.3
 plotly
 streamlit
 streamlit-authenticator
-streamlit-gsheets
+st-gsheets-connection
