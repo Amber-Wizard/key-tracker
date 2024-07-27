@@ -1,0 +1,7 @@
+bs4
+selenium
+pandas
+plotly
+streamlit
+streamlit_authenticator
+uuid
