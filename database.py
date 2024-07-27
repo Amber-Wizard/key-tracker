@@ -1,11 +1,12 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
+# from streamlit_gsheets import GSheetsConnection
 import pandas as pd
+# from deta import Deta
 
 
 def connect():
     # Create a connection object.
-    conn = st.connection("gsheets", type=GSheetsConnection)
+    # conn = st.connection("gsheets", type=GSheetsConnection)
     return conn
 
 
@@ -42,8 +43,6 @@ def pull_game(gid):
     return game
 
 
-
-print(pull_game("4ec6f48d-e2a2-4040-8925-5338c46cb68f"))
 
 
 
