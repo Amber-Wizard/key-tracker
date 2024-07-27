@@ -51,7 +51,7 @@ if 'authentication_status' not in st.session_state or st.session_state.authentic
 
     st.write('')
     st.write('')
-
+    st.session_state.authentication_status = None
     if st.session_state.authentication_status is False:
         st.error("Incorrect username/password")
 
