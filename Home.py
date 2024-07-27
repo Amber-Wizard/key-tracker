@@ -56,13 +56,13 @@ if 'authentication_status' not in st.session_state or st.session_state.authentic
         st.error("Incorrect username/password")
 
     reg_username, reg_email, reg_name = None, None, None
-    try:
-        reg_email, reg_username, reg_name, = authenticator.register_user(pre_authorization=False)
-    except RegisterError as e:
-        st.error(f"{e}")
-    user_dict = authenticator.authentication_handler.credentials['usernames']
-    if reg_username:
-        st.write(user_dict)
+    # try:
+    #     reg_email, reg_username, reg_name, = authenticator.register_user(pre_authorization=False)
+    # except RegisterError as e:
+    #     st.error(f"{e}")
+    # user_dict = authenticator.authentication_handler.credentials['usernames']
+    # if reg_username:
+    #     st.write(user_dict)
         # register_status, message = users.new_user(reg_username, user_dict[reg_username]['password'], reg_email, reg_name)
 
         # if register_status == "Error":
