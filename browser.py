@@ -5,6 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.core.os_manager import ChromeType
+from selenium.webdriver.chrome.options import Options
 import time
 import re
 # import matplotlib.pyplot as plt
@@ -31,8 +32,14 @@ def get_driver():
     return webdriver.Chrome(
         service=Service(
             ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
-        )
+        ),
+        options=options,
     )
+
+
+options = Options()
+options.add_argument("--disable-gpu")
+options.add_argument("--headless")
 
 driver = get_driver()
 
@@ -45,7 +52,7 @@ def initialize():
     return driver
 
 
-def login(driver, username, password):
+def login(username, password):
     username_input = driver.find_element('name', 'username')
     username_input.send_keys(username)
 
@@ -61,7 +68,7 @@ def login(driver, username, password):
     driver.implicitly_wait(10)
 
 
-def fetch_html(driver):
+def fetch_html():
     driver.implicitly_wait(10)
     html_doc = driver.page_source
     with open('file.html', 'w', encoding='utf-8') as file:
