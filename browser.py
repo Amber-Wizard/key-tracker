@@ -435,13 +435,13 @@ def get_messages():
 
 def play(username, password):
 
-    login(driver, username, password)
+    login(username, password)
 
     game_obj = None
     p1_name = None
     p2_name = None
     while True:
-        fetch_html(driver)
+        fetch_html()
         if check_start():
             if game_obj is None:
                 p1_name, p2_name = get_player_names()
