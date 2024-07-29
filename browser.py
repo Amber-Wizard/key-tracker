@@ -47,15 +47,12 @@ driver = get_driver()
 
 
 def initialize():
-    driver = webdriver.Chrome()
     driver.get("https://thecrucible.online/login")
     driver.implicitly_wait(15)
 
-    return driver
-
 
 def login(username, password):
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.NAME, 'username')))
+    initialize()
     username_input = driver.find_element('name', 'username')
     username_input.send_keys(username)
 
