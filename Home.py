@@ -71,6 +71,7 @@ if 'authentication_status' not in st.session_state or st.session_state.authentic
 
                 if register_status == "Error":
                     st.error(message)
+                    st.error(user_dict[reg_username]['password'])
                 else:
                     st.success(message)
 
