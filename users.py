@@ -11,7 +11,7 @@ def new_user(username, password, email, tco_name):
     if len(password) < 5:
         return "Error", "Password must be at least 5 characters"
 
-    user_df = database.pull('Users')
+    user_df = database.get_all_users()('Users')
     if email in user_df['Email'].values:
         print("Email exists")
         return "Error", f"Account already registered for {email}"
