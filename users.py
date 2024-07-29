@@ -11,12 +11,13 @@ def new_user(username, password, email, tco_name):
     if len(password) < 5:
         return "Error", "Password must be at least 5 characters"
 
-    user_df = database.get_all_users()('Users')
-    if email in user_df['Email'].values:
+    users = database.get_all_users()
+    user_df = database.to_dataframe(users)
+    if email in user_df['email'].values:
         print("Email exists")
         return "Error", f"Account already registered for {email}"
 
-    if username in user_df['Username'].values:
+    if username in user_df['username'].values:
         print("Username exists")
         return "Error", "Username already exists"
 
