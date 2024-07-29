@@ -8,7 +8,7 @@ import pymongo
 def get_client():
     username = st.secrets['mongo']['username']
     password = st.secrets['mongo']['password']
-    mongo_string = f'mongodb+srv://{username}:{password}@keytracker.ztswoqe.mongodb.net/?retryWrites=true&w=majority&appName=KeyTracker?ssl=true&ssl_cert_reqs=CERT_NONE'
+    mongo_string = f'mongodb+srv://{username}:{password}@keytracker.ztswoqe.mongodb.net/?retryWrites=true&w=majority&appName=KeyTracker'
     c = pymongo.MongoClient(mongo_string, serverSelectionTimeoutMS=5000)
     return c
 
