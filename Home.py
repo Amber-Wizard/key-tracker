@@ -63,6 +63,7 @@ if 'authentication_status' not in st.session_state or st.session_state.authentic
             st.error(f"{e}")
         try:
             user_dict = authenticator.authentication_controller.authentication_model.credentials['usernames']
+            st.write(user_dict)
         except:
             user_dict = None
         if reg_username:
@@ -74,6 +75,8 @@ if 'authentication_status' not in st.session_state or st.session_state.authentic
                     st.error(user_dict[reg_username]['password'])
                 else:
                     st.success(message)
+    else:
+        st.write("No Authenticator")
 
 elif st.session_state.authentication_status:
 
