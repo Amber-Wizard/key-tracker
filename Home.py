@@ -61,14 +61,18 @@ if 'authentication_status' not in st.session_state or st.session_state.authentic
             reg_email, reg_username, reg_name, = authenticator.register_user(pre_authorization=False)
         except RegisterError as e:
             st.error(f"{e}")
-        user_dict = authenticator.authentication_handler.credentials['usernames']
+        try:
+            user_dict = authenticator.authentication_handler.credentials['usernames']
+        except:
+            user_dict = None
         if reg_username:
-            register_status, message = users.new_user(reg_username, user_dict[reg_username]['password'], reg_email, reg_name)
+            if user_dict:
+                register_status, message = users.new_user(reg_username, user_dict[reg_username]['password'], reg_email, reg_name)
 
-            if register_status == "Error":
-                st.error(message)
-            else:
-                st.success(message)
+                if register_status == "Error":
+                    st.error(message)
+                else:
+                    st.success(message)
 
 elif st.session_state.authentication_status:
 
