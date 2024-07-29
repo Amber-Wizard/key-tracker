@@ -4,6 +4,6 @@ pandas
 numpy
 plotly
 streamlit
-streamlit-authenticator==0.3.2
+streamlit-authenticator
 deta
 pymongo

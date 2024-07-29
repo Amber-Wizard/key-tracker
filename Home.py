@@ -62,7 +62,7 @@ if 'authentication_status' not in st.session_state or st.session_state.authentic
         except RegisterError as e:
             st.error(f"{e}")
         try:
-            user_dict = authenticator.authentication_handler.credentials['usernames']
+            user_dict = authenticator.authentication_controller.credentials['usernames']
         except:
             user_dict = None
         if reg_username:
