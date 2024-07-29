@@ -138,8 +138,7 @@ class Game:
             'Player Frags': [self.player_frags],
             'Opponent Frags': [self.opponent_frags],
         }
-        game_df = pd.DataFrame(data)
-        database.post('Games', game_df)
+        database.log_game(data)
 
 
 

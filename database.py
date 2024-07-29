@@ -1,58 +1,70 @@
 import streamlit as st
-# from streamlit_gsheets import GSheetsConnection
 import pandas as pd
-# from deta import Deta
+import urllib.error
+import pymongo
 
 
-def connect():
-    # Create a connection object.
-    # conn = st.connection("gsheets", type=GSheetsConnection)
-    return conn
+@st.cache_resource
+def get_client():
+    username = st.secrets['mongo']['username']
+    password = st.secrets['mongo']['password']
+    mongo_string = f'mongodb+srv://{username}:{password}@keytracker.ztswoqe.mongodb.net/?retryWrites=true&w=majority&appName=KeyTracker'
+    c = pymongo.MongoClient(mongo_string)
+    return c
+
+client = get_client()
 
 
-def pull(ws):
-    conn = connect()
-    df = conn.read(worksheet=ws)
+def to_dataframe(data):
+    documents = list(data)
+    df = pd.DataFrame(documents)
+    if '_id' in df.columns:
+        df = df.drop(columns=['_id'])
     return df
 
 
-def post(ws, data=None, df=None):
-    conn = connect()
-    if df is None:
-        df = pull(ws)
-    if data is None:
-        new_df = df
-    else:
-        new_df = pd.concat([df, data], axis=0)
-    conn.update(
-        worksheet=ws,
-        data=new_df
-    )
-    return new_df
+def get_database(db_name):
+    return client['KeyTracker'][db_name]
 
 
-def pull_user_games(username):
-    games_df = pull('Games')
-    player_games = games_df[games_df['Player'] == username]
-    return player_games
+def add_user(username, password, email, tco_name):
+    db = get_database('Users')
+    return db.insert_one({"username": username, "password": password, "email": email, "tco_name": tco_name}).acknowledged
 
 
-def pull_game(gid):
-    games_df = pull('Games')
-    game = games_df.loc[games_df['ID'] == gid].iloc[0]
-    return game
+def delete_user(username):
+    db = get_database('Users')
+    return db.delete_many({'username': username}).acknowledged
 
 
+def get_user(username):
+    db = get_database('Users')
+    return db.find_one({'username': username})
 
 
+def get_all_users():
+    db = get_database('Users')
+    res = db.find()
+    return res
 
 
+def log_game(data):
+    db = get_database('Games')
+    return db.insert_one(data).acknowledged
 
 
+def delete_game(gid):
+    db = get_database('Games')
+    return db.delete_one({'ID': gid}).acknowledged
 
 
+def get_game(gid):
+    db = get_database('Games')
+    return db.find_one({'ID': gid})
 
 
-
-
-
+def get_user_games(username):
+    db = get_database('Games')
+    data = db.find({'Player': username})
+    df = to_dataframe(data)
+    return df

@@ -44,31 +44,31 @@ else:
     display_name = st.session_state.name
 st.title(f":blue[{display_name}'s] KeyTracker")
 
-# authenticator = users.get_authenticator()
-# name, auth_status, username = authenticator.login(location="main")
+authenticator = users.get_authenticator()
+name, auth_status, username = authenticator.login(location="main")
 
 if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
 
     st.write('')
     st.write('')
-    st.session_state.authentication_status = None
+
     if st.session_state.authentication_status is False:
         st.error("Incorrect username/password")
 
     reg_username, reg_email, reg_name = None, None, None
-    # try:
-    #     reg_email, reg_username, reg_name, = authenticator.register_user(pre_authorization=False)
-    # except RegisterError as e:
-    #     st.error(f"{e}")
-    # user_dict = authenticator.authentication_handler.credentials['usernames']
-    # if reg_username:
-    #     st.write(user_dict)
-        # register_status, message = users.new_user(reg_username, user_dict[reg_username]['password'], reg_email, reg_name)
+    try:
+        reg_email, reg_username, reg_name, = authenticator.register_user(pre_authorization=False)
+    except RegisterError as e:
+        st.error(f"{e}")
+    user_dict = authenticator.authentication_handler.credentials['usernames']
+    if reg_username:
+        st.write(user_dict)
+        register_status, message = users.new_user(reg_username, user_dict[reg_username]['password'], reg_email, reg_name)
 
-        # if register_status == "Error":
-        #     st.error(message)
-        # else:
-        #     st.success(message)
+        if register_status == "Error":
+            st.error(message)
+        else:
+            st.success(message)
 
 elif st.session_state.authentication_status:
 
@@ -77,8 +77,7 @@ elif st.session_state.authentication_status:
     if 'game_obj' not in st.session_state:
         st.session_state.game_obj = None
     if 'game_log' not in st.session_state:
-        # st.session_state.game_log = database.pull_user_games(st.session_state.name)
-        st.session_state.game_log = None
+        st.session_state.game_log = database.get_user_games(st.session_state.name)
     if 'game_analysis_id' not in st.session_state:
         st.session_state.game_analysis_id = None
 
@@ -100,8 +99,7 @@ elif st.session_state.authentication_status:
     st.divider()
     st.subheader("Analyze Game")
     with st.expander("Select Game"):
-        game_choice = st.dataframe(st.session_state.game_log[['Date', 'Deck', 'Opponent Deck', 'Opponent', 'Winner']],
-                                   on_select='rerun', selection_mode='single-row', hide_index=True)
+        game_choice = st.dataframe(st.session_state.game_log[['Date', 'Deck', 'Opponent Deck', 'Opponent', 'Winner']], on_select='rerun', selection_mode='single-row', hide_index=True)
     analyze_games = st.button("Analyze", key='analyze_games')
     if analyze_games:
         selected_game = game_choice['selection']['rows']

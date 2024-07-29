@@ -1,9 +1,9 @@
 bs4
 selenium
-pandas==1.5.3
-numpy==1.24.3
+pandas
+numpy
 plotly
 streamlit
 streamlit-authenticator
-st-gsheets-connection
-validators==0.22.0
+deta
+pymongo
