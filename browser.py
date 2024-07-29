@@ -7,6 +7,7 @@ import re
 # import matplotlib.pyplot as plt
 import json
 import os
+import streamlit as st
 
 from game import Game
 
@@ -20,6 +21,17 @@ from game import Game
 #     default_content = "USERNAME = ''\nPASSWORD = ''\n"
 #     with open('config.txt', 'w') as f:
 #         f.write(default_content)
+
+
+@st.cache_resource
+def get_driver():
+    return webdriver.Chrome(
+        service=Service(
+            ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
+        )
+    )
+
+driver = get_driver()
 
 
 def initialize():
@@ -412,7 +424,6 @@ def get_messages():
 
 
 def play(username, password):
-    driver = initialize()
 
     login(driver, username, password)
 
