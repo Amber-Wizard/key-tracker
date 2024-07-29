@@ -61,10 +61,8 @@ if 'authentication_status' not in st.session_state or st.session_state.authentic
             reg_email, reg_username, reg_name, = authenticator.register_user(pre_authorization=False)
         except RegisterError as e:
             st.error(f"{e}")
-        st.write(authenticator.authentication_handler.credentials)
         user_dict = authenticator.authentication_handler.credentials['usernames']
         if reg_username:
-            st.write(user_dict)
             register_status, message = users.new_user(reg_username, user_dict[reg_username]['password'], reg_email, reg_name)
 
             if register_status == "Error":
@@ -101,15 +99,20 @@ elif st.session_state.authentication_status:
     st.divider()
     st.subheader("Analyze Game")
     with st.expander("Select Game"):
-        game_choice = st.dataframe(st.session_state.game_log[['Date', 'Deck', 'Opponent Deck', 'Opponent', 'Winner']], on_select='rerun', selection_mode='single-row', hide_index=True)
+        if not st.session_state.game_log.empty:
+            game_choice = st.dataframe(st.session_state.game_log[['Date', 'Deck', 'Opponent Deck', 'Opponent', 'Winner']], on_select='rerun', selection_mode='single-row', hide_index=True)
+        else:
+            game_choice = None
+            st.write("No games played.")
     analyze_games = st.button("Analyze", key='analyze_games')
     if analyze_games:
-        selected_game = game_choice['selection']['rows']
-        if len(selected_game) == 0:
-            st.error("No game selected")
-        else:
-            st.session_state.game_id = st.session_state.game_log.iloc[selected_game[0]]['ID']
-            st.switch_page("pages/1_Game_Analysis.py")
+        if game_choice:
+            selected_game = game_choice['selection']['rows']
+            if len(selected_game) == 0:
+                st.error("No game selected")
+            else:
+                st.session_state.game_id = st.session_state.game_log.iloc[selected_game[0]]['ID']
+                st.switch_page("pages/1_Game_Analysis.py")
 
     st.divider()
     st.subheader("Analyze Deck")
