@@ -6,7 +6,7 @@ from streamlit_authenticator.utilities.validator import Validator
 from streamlit_authenticator.utilities.exceptions import RegisterError
 
 
-import browser
+# import browser
 import analysis
 import database
 import users
@@ -92,19 +92,19 @@ elif st.session_state.authentication_status:
     version = "0.3.0"
     st.markdown(f'<p class="version-font">v{version}</p>', unsafe_allow_html=True)
     st.divider()
-    st.subheader("Launch The Crucible Online")
-    st.write('')
-    launch = st.button("Play")
-    if launch and not st.session_state.playing:
-        st.session_state.playing = True
-        st.session_state.game_obj = browser.play(st.session_state.name, None)
-    if launch and st.session_state.playing:
-        st.error("The Crucible is already running")
-    if st.session_state.game_obj:
-        st.session_state.playing = False
-        st.session_state.game_obj = None
+    # st.subheader("Launch The Crucible Online")
+    # st.write('')
+    # launch = st.button("Play")
+    # if launch and not st.session_state.playing:
+    #     st.session_state.playing = True
+    #     st.session_state.game_obj = browser.play(st.session_state.name, None)
+    # if launch and st.session_state.playing:
+    #     st.error("The Crucible is already running")
+    # if st.session_state.game_obj:
+    #     st.session_state.playing = False
+    #     st.session_state.game_obj = None
 
-    st.divider()
+    # st.divider()
     st.subheader("Analyze Game")
     with st.expander("Select Game"):
         if not st.session_state.game_log.empty:

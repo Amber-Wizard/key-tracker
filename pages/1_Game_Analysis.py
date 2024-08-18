@@ -3,6 +3,20 @@ import streamlit as st
 import database
 import graphing
 
+
+def subtract_dicts(old_dict, new_dict):
+    # Subtract values from the new dict based on the old dict
+    result = {}
+    for key, value in new_dict.items():
+        if key in old_dict:
+            difference = value - old_dict[key]
+            if difference > 0:
+                result[key] = difference
+        else:
+            result[key] = value
+    return result
+
+
 try:
     st.set_page_config(
         page_title="Analysis - KeyTracker",
@@ -22,6 +36,9 @@ st.markdown("""
     font-size: 28px !important;
     color: #424242 !important;
 }
+.plain-font {
+    font-size: 24px !important;
+}
 .hero-font {
     font-size: 24px !important;
     color: #60b4ff !important;
@@ -29,6 +46,10 @@ st.markdown("""
 .villain-font {
     font-size: 24px !important;
     color: #ff4b4b !important;
+}
+.amber-font {
+    font-size: 24px !important;
+    color: #f8df65 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -44,7 +65,7 @@ if 'game_id' in st.session_state:
 
 
 def pull_game_data(gid):
-    st.session_state.game_data = database.pull_game(gid)
+    st.session_state.game_data = database.get_game(gid)
 
 if game_id:
     pull_game_data(game_id)
@@ -53,29 +74,35 @@ if 'game_data' not in st.session_state:
     st.error("No game selected")
 else:
     c1, c2 = st.columns([7, 1])
-    c1.markdown(f'<b class="deck-font">{st.session_state.game_data["Deck"]}</b>', unsafe_allow_html=True)
-    c2.link_button("Deck Info", st.session_state.game_data["Deck Link"])
+    c1.markdown(f'<b class="deck-font">{st.session_state.game_data["Deck"][0]}</b>', unsafe_allow_html=True)
+    c2.link_button("Deck Info", st.session_state.game_data["Deck Link"][0])
     st.write('vs')
     c1, c2 = st.columns([7, 1])
-    c1.markdown(f'<b class="deck-font">{st.session_state.game_data["Opponent Deck"]}</b>', unsafe_allow_html=True)
-    c2.link_button("Deck Info", st.session_state.game_data["Opponent Deck Link"])
-    st.markdown(f'<b class="game-data-font">{st.session_state.game_data["Date"]}</b>', unsafe_allow_html=True)
+    c1.markdown(f'<b class="deck-font">{st.session_state.game_data["Opponent Deck"][0]}</b>', unsafe_allow_html=True)
+    c2.link_button("Deck Info", st.session_state.game_data["Opponent Deck Link"][0])
+    st.markdown(f'<b class="game-data-font">{st.session_state.game_data["Date"][0]}</b>', unsafe_allow_html=True)
     st.divider()
     c1, c2, c3 = st.columns(3)
 
     c1.subheader("Opponent")
     c2.subheader("First Player")
     c3.subheader("Winner")
-    opponent = st.session_state.game_data['Opponent']
-    starting_player = st.session_state.game_data['Starting Player']
-    winner = st.session_state.game_data['Winner']
-    username = st.session_state.name
+    player = st.session_state.game_data['Player'][0]
+    opponent = st.session_state.game_data['Opponent'][0]
+    starting_player = st.session_state.game_data['Starting Player'][0]
+    if starting_player == opponent:
+        second_player = player
+    elif starting_player == player:
+        second_player = opponent
+    else:
+        second_player = None
+    winner = st.session_state.game_data['Winner'][0]
     c1.markdown(f'<b class="villain-font">{opponent}</b>', unsafe_allow_html=True)
-    if starting_player == username:
+    if starting_player == player:
         c2.markdown(f'<b class="hero-font">{starting_player}</b>', unsafe_allow_html=True)
     else:
         c2.markdown(f'<b class="villain-font">{starting_player}</b>', unsafe_allow_html=True)
-    if winner == username:
+    if winner == player:
         c3.markdown(f'<b class="hero-font">{winner}</b>', unsafe_allow_html=True)
     else:
         c3.markdown(f'<b class="villain-font">{winner}</b>', unsafe_allow_html=True)
@@ -83,7 +110,7 @@ else:
     st.write(' ')
     st.write(' ')
 
-    game_df, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, player_card_data, opponent_card_data = graphing.analyze_game(st.session_state.name, st.session_state.game_data)
+    game_df, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, player_card_data, opponent_card_data = graphing.analyze_game(player, st.session_state.game_data)
     c1, c2 = st.columns(2)
     c1.subheader("Total Amber Value")
     c1.line_chart(
@@ -162,4 +189,83 @@ else:
     with st.expander("Opponent Card Data"):
         st.dataframe(opponent_card_data, hide_index=True)
 
+    st.subheader("Turns")
 
+    link_base = "https://keyforge-card-images.s3-us-west-2.amazonaws.com/card-imgs/"
+
+    game_log = st.session_state.game_data['Game Log'][0]
+
+    for t in range(len(game_log[starting_player]['cards_played'])):
+        if t % 2 == 0:
+            p = starting_player
+        else:
+            p = second_player
+        with st.expander(f"{t}: Turn {round((t+1.1)/2)} - {p}"):
+            c1, c2, c3 = st.columns(3)
+            keys = game_log[p]['keys'][t]
+            new_keys = max(keys - game_log[p]['keys'][t-1], 0)
+
+            if p == player:
+                c1.markdown(f'<b class="hero-font">Keys: {keys} (+{new_keys})</b>', unsafe_allow_html=True)
+            else:
+                c1.markdown(f'<b class="villain-font">Keys: {keys} (+{new_keys})</b>', unsafe_allow_html=True)
+
+            total_amber_gained = game_log[p]['amber_icons'][t] + game_log[p]['amber_reaped'][t] + game_log[p]['steal'][t] + game_log[p]['amber_effect'][t]
+
+            if t < 2:
+                amber_gained_turn = total_amber_gained
+            else:
+                last_amber_gained = game_log[p]['amber_icons'][t-1] + game_log[p]['amber_reaped'][t-1] + game_log[p]['steal'][t-1] + game_log[p]['amber_effect'][t-1]
+                amber_gained_turn = total_amber_gained - last_amber_gained
+
+            c2.markdown(f'<b class="amber-font">Amber: {game_log[p]["amber"][t]} (+{amber_gained_turn})</b>', unsafe_allow_html=True)
+
+            c3.markdown(f'<b class="plain-font">Creatures: {game_log[p]["creatures"][t]}</b>', unsafe_allow_html=True)
+
+            cards_played = st.session_state.game_data['Game Log'][0][p]['individual_cards_played']
+            cards_played_turn = cards_played[t]
+            if t < 2:
+                new_cards_played = cards_played_turn
+            else:
+                new_cards_played = subtract_dicts(cards_played[t-1], cards_played_turn)
+
+            remove_chars = 'æ””“!,.-'
+
+            if len(new_cards_played) > 0:
+                st.subheader("Cards Played")
+
+                cols = st.columns(6)
+                last_column = 0
+                for card, copies in new_cards_played.items():
+                    for _ in range(copies):
+                        translation_table = str.maketrans('', '', remove_chars)
+                        link_name = card.lower().translate(translation_table).replace(' ', '-')
+                        image_link = f"{link_base}{link_name}.png"
+                        cols[last_column].image(image_link)
+                        if last_column < 5:
+                            last_column += 1
+                        else:
+                            last_column = 0
+
+            cards_discarded = st.session_state.game_data['Game Log'][0][p]['individual_cards_discarded']
+            cards_discarded_turn = cards_discarded[t]
+            if t < 2:
+                new_cards_discarded = cards_discarded_turn
+            else:
+                new_cards_discarded = subtract_dicts(cards_discarded[t - 1], cards_discarded_turn)
+
+            if len(new_cards_discarded) > 0:
+                st.subheader("Cards Discarded")
+
+                cols = st.columns(6)
+                last_column = 0
+                for card, copies in new_cards_discarded.items():
+                    for _ in range(copies):
+                        translation_table = str.maketrans('', '', remove_chars)
+                        link_name = card.lower().translate(translation_table).replace(' ', '-')
+                        image_link = f"{link_base}{link_name}.png"
+                        cols[last_column].image(image_link)
+                        if last_column < 5:
+                            last_column += 1
+                        else:
+                            last_column = 0

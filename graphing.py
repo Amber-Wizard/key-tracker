@@ -106,9 +106,9 @@ def calculate_ex_amber(player_data, opponent_data, first_player, opponent_name, 
 
 def analyze_game(username, game_data):
 
-    log = ast.literal_eval(game_data['Game Log'])
+    log = game_data['Game Log'][0]
     player_data = log[username]
-    first_player = game_data['Starting Player']
+    first_player = game_data['Starting Player'][0]
 
     if list(log.keys())[0] == username:
         opponent_name = list(log.keys())[1]
