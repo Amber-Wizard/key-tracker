@@ -54,6 +54,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 game_id = None
 if 'game' in st.query_params:
     game_id = st.query_params.get_all(key='game')[0]
