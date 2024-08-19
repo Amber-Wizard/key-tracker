@@ -102,7 +102,7 @@ def get_featured_game_log():
         sorted_games = featured_games.sort_values(by=['Likes', 'Date'], ascending=[False, False])
         return sorted_games
     else:
-        return None
+        return []
 
 
 def like_game(gid, user):

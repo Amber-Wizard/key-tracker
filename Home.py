@@ -62,7 +62,7 @@ if 'game_analysis_id' not in st.session_state:
 
 st.subheader("Featured Games")
 with st.expander("Select Game"):
-    if st.session_state.featured_game_log:
+    if len(st.session_state.featured_game_log) > 0:
         featured_game_choice = st.dataframe(st.session_state.featured_game_log[['Date', 'Player', 'Opponent', 'Winner', 'Deck', 'Opponent Deck', 'Likes']], on_select='rerun', selection_mode='single-row', hide_index=True)
     else:
         featured_game_choice = None
