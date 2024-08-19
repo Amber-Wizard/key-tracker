@@ -95,7 +95,7 @@ def get_featured_game_log():
         game_id = row['ID'][0]  # Extract the ID from the list
         game_data = get_game(game_id)
 
-        if game_data:
+        if game_data != None:
             for attribute in ['Date', 'Player', 'Opponent', 'Winner', 'Deck', 'Opponent Deck']:
                 featured_games.at[index, attribute] = game_data.get(attribute, [''])[0]
     if 'Date' in featured_games.columns:
