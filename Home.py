@@ -69,7 +69,7 @@ if analyze_games:
         else:
             st.session_state.game_id = st.session_state.featured_game_log.iloc[selected_featured_game[0]]['ID'][0]
             st.switch_page("pages/1_Game_Analysis.py")
-if st.session_state.name:
+if 'name' in st.session_state:
     like_game = c2.button("💙")
     if like_game:
         if featured_game_choice:
