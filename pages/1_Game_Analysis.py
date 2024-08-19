@@ -263,15 +263,15 @@ else:
                     else:
                         last_column = 0
 
-            if len(new_cards_played) > 0 and len(new_cards_discarded) > 0 and len(new_cards_played) + len(new_cards_discarded) <= 10:
-                if len(new_cards_played) <= 5 and len(new_cards_discarded) <= 5:
+            if sum(new_cards_played.values()) > 0 and sum(new_cards_discarded.values()) > 0 and sum(new_cards_played.values()) + sum(new_cards_discarded.values()) <= 10:
+                if sum(new_cards_played.values()) <= 5 and sum(new_cards_discarded.values()) <= 5:
                     card_split_ratio = 6
                 else:
-                    card_split_ratio = len(new_cards_played) + 1
+                    card_split_ratio = sum(new_cards_played.values()) + 1
 
                 c1, c2 = st.columns([card_split_ratio, 11-card_split_ratio])
                 c1.subheader("Cards Played")
-                c2.subheader("Cards Discarded")
+                c2.subheader("Discards")
 
                 cols = st.columns(11)
                 last_column = 0
@@ -296,7 +296,7 @@ else:
                             last_column += 1
                         else:
                             last_column = card_split_ratio
-            if len(new_cards_played) > 0 and (len(new_cards_played) + len(new_cards_discarded) > 10 or len(new_cards_discarded) == 0):
+            if sum(new_cards_played.values()) > 0 and (sum(new_cards_played.values()) + sum(new_cards_discarded.values()) > 10 or sum(new_cards_discarded.values()) == 0):
                 st.subheader("Cards Played")
 
                 cols = st.columns(11)
@@ -312,8 +312,8 @@ else:
                         else:
                             last_column = 0
 
-            if len(new_cards_discarded) > 0 and (len(new_cards_played) + len(new_cards_discarded) > 10 or len(new_cards_played) == 0):
-                st.subheader("Cards Discarded")
+            if sum(new_cards_discarded.values()) > 0 and (sum(new_cards_played.values()) + sum(new_cards_discarded.values()) > 10 or sum(new_cards_played.values()) == 0):
+                st.subheader("Discards")
 
                 cols = st.columns(11)
                 last_column = 0
