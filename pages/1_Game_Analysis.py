@@ -230,30 +230,15 @@ else:
 
             c3.markdown(f'<b class="plain-font">Creatures: {game_log[p]["creatures"][t]}</b>', unsafe_allow_html=True)
 
+            hands = st.session_state.game_data['Game Log'][0]['player_hand']
+            player_boards = st.session_state.game_data['Game Log'][0][player]['board']
+            opponent_boards = st.session_state.game_data['Game Log'][0][opponent]['board']
             cards_played = st.session_state.game_data['Game Log'][0][p]['individual_cards_played']
             cards_played_turn = cards_played[t]
             if t < 2:
                 new_cards_played = cards_played_turn
             else:
                 new_cards_played = subtract_dicts(cards_played[t-1], cards_played_turn)
-
-            remove_chars = 'æ””“!,.-'
-
-            if len(new_cards_played) > 0:
-                st.subheader("Cards Played")
-
-                cols = st.columns(6)
-                last_column = 0
-                for card, copies in new_cards_played.items():
-                    for _ in range(copies):
-                        translation_table = str.maketrans('', '', remove_chars)
-                        link_name = card.lower().translate(translation_table).replace(' ', '-')
-                        image_link = f"{link_base}{link_name}.png"
-                        cols[last_column].image(image_link)
-                        if last_column < 5:
-                            last_column += 1
-                        else:
-                            last_column = 0
 
             cards_discarded = st.session_state.game_data['Game Log'][0][p]['individual_cards_discarded']
             cards_discarded_turn = cards_discarded[t]
@@ -262,10 +247,75 @@ else:
             else:
                 new_cards_discarded = subtract_dicts(cards_discarded[t - 1], cards_discarded_turn)
 
-            if len(new_cards_discarded) > 0:
+            remove_chars = 'æ””“!,.-…'
+
+            if p == player:
+                st.subheader("Player Hand")
+                cols = st.columns(11)
+                last_column = 0
+                for card in hands[max(t-1, 0)]:
+                    translation_table = str.maketrans('', '', remove_chars)
+                    link_name = card.lower().translate(translation_table).replace(' ', '-')
+                    image_link = f"{link_base}{link_name}.png"
+                    cols[last_column].image(image_link)
+                    if last_column < 10:
+                        last_column += 1
+                    else:
+                        last_column = 0
+
+            if len(new_cards_played) > 0 and len(new_cards_discarded) > 0 and len(new_cards_played) + len(new_cards_discarded) <= 10:
+                if len(new_cards_played) <= 5 and len(new_cards_discarded) <= 5:
+                    card_split_ratio = 6
+                else:
+                    card_split_ratio = len(new_cards_played) + 1
+
+                c1, c2 = st.columns([card_split_ratio, 11-card_split_ratio])
+                c1.subheader("Cards Played")
+                c2.subheader("Cards Discarded")
+
+                cols = st.columns(11)
+                last_column = 0
+                for card, copies in new_cards_played.items():
+                    for _ in range(copies):
+                        translation_table = str.maketrans('', '', remove_chars)
+                        link_name = card.lower().translate(translation_table).replace(' ', '-')
+                        image_link = f"{link_base}{link_name}.png"
+                        cols[last_column].image(image_link)
+                        if last_column < card_split_ratio-1:
+                            last_column += 1
+                        else:
+                            last_column = 0
+                last_column = card_split_ratio
+                for card, copies in new_cards_discarded.items():
+                    for _ in range(copies):
+                        translation_table = str.maketrans('', '', remove_chars)
+                        link_name = card.lower().translate(translation_table).replace(' ', '-')
+                        image_link = f"{link_base}{link_name}.png"
+                        cols[last_column].image(image_link)
+                        if last_column < 10:
+                            last_column += 1
+                        else:
+                            last_column = card_split_ratio
+            if len(new_cards_played) > 0 and (len(new_cards_played) + len(new_cards_discarded) > 10 or len(new_cards_discarded) == 0):
+                st.subheader("Cards Played")
+
+                cols = st.columns(11)
+                last_column = 0
+                for card, copies in new_cards_played.items():
+                    for _ in range(copies):
+                        translation_table = str.maketrans('', '', remove_chars)
+                        link_name = card.lower().translate(translation_table).replace(' ', '-')
+                        image_link = f"{link_base}{link_name}.png"
+                        cols[last_column].image(image_link)
+                        if last_column < 10:
+                            last_column += 1
+                        else:
+                            last_column = 0
+
+            if len(new_cards_discarded) > 0 and (len(new_cards_played) + len(new_cards_discarded) > 10 or len(new_cards_played) == 0):
                 st.subheader("Cards Discarded")
 
-                cols = st.columns(6)
+                cols = st.columns(11)
                 last_column = 0
                 for card, copies in new_cards_discarded.items():
                     for _ in range(copies):
@@ -273,7 +323,80 @@ else:
                         link_name = card.lower().translate(translation_table).replace(' ', '-')
                         image_link = f"{link_base}{link_name}.png"
                         cols[last_column].image(image_link)
-                        if last_column < 5:
+                        if last_column < 10:
                             last_column += 1
                         else:
                             last_column = 0
+            
+            if p == player:
+                first_board = player_boards[t]
+                second_board = opponent_boards[t]
+                fb_name = "Player Board"
+                sb_name = "Opponent Board"
+            else:
+                first_board = opponent_boards[t]
+                second_board = player_boards[t]
+                fb_name = "Opponent Board"
+                sb_name = "Player Board"
+            
+            if len(first_board) > 0 and len(second_board) > 0 and len(first_board) + len(second_board) <= 10:
+                if len(first_board) <= 5 and len(second_board) <= 5:
+                    card_split_ratio = 6
+                else:
+                    card_split_ratio = len(first_board) + 1
+
+                c1, c2 = st.columns([card_split_ratio, 11-card_split_ratio])
+                c1.subheader(fb_name)
+                c2.subheader(sb_name)
+
+                cols = st.columns(11)
+                last_column = 0
+                for card in first_board:
+                    translation_table = str.maketrans('', '', remove_chars)
+                    link_name = card.lower().translate(translation_table).replace(' ', '-')
+                    image_link = f"{link_base}{link_name}.png"
+                    cols[last_column].image(image_link)
+                    if last_column < card_split_ratio-1:
+                        last_column += 1
+                    else:
+                        last_column = 0
+                last_column = card_split_ratio
+                for card in second_board:
+                    translation_table = str.maketrans('', '', remove_chars)
+                    link_name = card.lower().translate(translation_table).replace(' ', '-')
+                    image_link = f"{link_base}{link_name}.png"
+                    cols[last_column].image(image_link)
+                    if last_column < 10:
+                        last_column += 1
+                    else:
+                        last_column = card_split_ratio
+
+            if len(first_board) > 0 and (len(first_board) + len(second_board) > 10 or len(second_board) == 0):
+                st.subheader(fb_name)
+
+                cols = st.columns(11)
+                last_column = 0
+                for card in first_board:
+                    translation_table = str.maketrans('', '', remove_chars)
+                    link_name = card.lower().translate(translation_table).replace(' ', '-')
+                    image_link = f"{link_base}{link_name}.png"
+                    cols[last_column].image(image_link)
+                    if last_column < 10:
+                        last_column += 1
+                    else:
+                        last_column = 0
+
+            if len(second_board) > 0 and (len(first_board) + len(second_board) > 10 or len(first_board) == 0):
+                st.subheader(sb_name)
+
+                cols = st.columns(11)
+                last_column = 0
+                for card in second_board:
+                    translation_table = str.maketrans('', '', remove_chars)
+                    link_name = card.lower().translate(translation_table).replace(' ', '-')
+                    image_link = f"{link_base}{link_name}.png"
+                    cols[last_column].image(image_link)
+                    if last_column < 10:
+                        last_column += 1
+                    else:
+                        last_column = 0
