@@ -54,7 +54,10 @@ if 'authentication_status' not in st.session_state or st.session_state.authentic
     pass
 else:
     if 'game_log' not in st.session_state:
-        st.session_state.game_log = database.get_user_games(st.session_state.name)
+        if st.session_state.name == 'master':
+            st.session_state.game_log = database.get_all_games()
+        else:
+            st.session_state.game_log = database.get_user_games(st.session_state.name)
 if 'featured_game_log' not in st.session_state:
     st.session_state.featured_game_log = database.get_featured_game_log()
 if 'game_analysis_id' not in st.session_state:

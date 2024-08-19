@@ -70,6 +70,13 @@ def get_user_games(username):
     return df
 
 
+def get_all_games():
+    db = get_database('Games')
+    data = db.find()
+    df = to_dataframe(data)
+    return df
+
+
 def feature_game(gid):
     db = get_database('Featured Games')
 
