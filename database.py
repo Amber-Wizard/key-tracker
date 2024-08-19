@@ -98,10 +98,11 @@ def get_featured_game_log():
         if game_data:
             for attribute in ['Date', 'Player', 'Opponent', 'Winner', 'Deck', 'Opponent Deck']:
                 featured_games.at[index, attribute] = game_data.get(attribute, [''])[0]
-
-    sorted_games = featured_games.sort_values(by=['Likes', 'Date'], ascending=[False, False])
-    return sorted_games
-
+    if len(featured_games) > 0:
+        sorted_games = featured_games.sort_values(by=['Likes', 'Date'], ascending=[False, False])
+        return sorted_games
+    else:
+        return None
 
 def like_game(gid, user):
     db = get_database('Featured Games')
