@@ -262,7 +262,8 @@ else:
                         last_column += 1
                     else:
                         last_column = 0
-            st.divider()
+                st.divider()
+
             if sum(new_cards_played.values()) > 0 and sum(new_cards_discarded.values()) > 0 and sum(new_cards_played.values()) + sum(new_cards_discarded.values()) <= 10:
                 if sum(new_cards_played.values()) <= 5 and sum(new_cards_discarded.values()) <= 5:
                     card_split_ratio = 6
