@@ -38,7 +38,7 @@ def get_authenticator():
             'password': user['password']
         }
 
-    auth = stauth.Authenticate(user_dict, 'keyforge_tracker', 'SpdfdgAEO1QTCF7lYXTO265VuBXlSpMm')
+    auth = stauth.Authenticate(user_dict, st.secrets['mongo']['username'], st.secrets['mongo']['password'])
     return auth
 
 authenticator = get_authenticator()

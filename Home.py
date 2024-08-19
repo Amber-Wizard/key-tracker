@@ -42,8 +42,9 @@ if 'authentication_status' not in st.session_state or st.session_state.authentic
     login = c2.button("Login")
     if login:
         st.switch_page("pages/2_Login.py")
-
-if 'authentication_status' in st.session_state:
+if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
+    pass
+else:
     if 'game_log' not in st.session_state:
         st.session_state.game_log = database.get_user_games(st.session_state.name)
 if 'featured_game_log' not in st.session_state:
@@ -69,7 +70,7 @@ if analyze_games:
         else:
             st.session_state.game_id = st.session_state.featured_game_log.iloc[selected_featured_game[0]]['ID'][0]
             st.switch_page("pages/1_Game_Analysis.py")
-if 'name' in st.session_state:
+if 'name' in st.session_state and st.session_state.name:
     like_game = c2.button("💙")
     if like_game:
         if featured_game_choice:
@@ -83,7 +84,9 @@ if 'name' in st.session_state:
                 else:
                     st.error(message)
 
-if 'authentication_status' in st.session_state:
+if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
+    pass
+else:
     st.divider()
     st.subheader("My Games")
     with st.expander("Select Game"):
