@@ -344,7 +344,7 @@ else:
             if len(first_board) > 0 and len(second_board) > 0 and len(first_board) + len(second_board) <= 10:
                 if len(first_board) <= 5 and len(second_board) <= 5:
                     card_split_ratio = 6
-                elif len(first_board > 5):
+                elif len(first_board) > 5:
                     card_split_ratio = len(first_board) + 1
                 else:
                     card_split_ratio = 11 - len(second_board)
