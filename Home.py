@@ -29,6 +29,7 @@ st.markdown("""
 
 if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
     display_name = "Zenzi"
+    st.switch_page('pages/2_Login.py')
 else:
     display_name = st.session_state.name
 
