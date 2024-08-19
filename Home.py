@@ -2,11 +2,8 @@ import streamlit as st
 import os
 import pandas as pd
 import re
-from streamlit_authenticator.utilities.validator import Validator
-from streamlit_authenticator.utilities.exceptions import RegisterError
 
 
-# import browser
 import analysis
 import database
 import users
@@ -22,14 +19,6 @@ try:
 except:
     pass
 
-
-# Monkey patch to override name validation
-def custom_validate_name(self, name_entry: str) -> bool:
-    pattern = r"^[A-Za-z0-9 ]+$"
-    return 1 <= len(name_entry) <= 100 and bool(re.match(pattern, name_entry))
-
-Validator.validate_name = custom_validate_name
-
 st.markdown("""
 <style>
 .version-font {
@@ -42,76 +31,69 @@ if 'authentication_status' not in st.session_state or st.session_state.authentic
     display_name = "Zenzi"
 else:
     display_name = st.session_state.name
-st.title(f":blue[{display_name}'s] KeyTracker")
 
-authenticator = users.get_authenticator()
-name, auth_status, username = authenticator.login(location="main")
+c1, c2 = st.columns([9, 1])
+c1.title(f":blue[{display_name}'s] KeyTracker")
+version = "0.4.0"
+st.markdown(f'<p class="version-font">v{version}</p>', unsafe_allow_html=True)
+st.divider()
 
 if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
+    login = c2.button("Login")
+    if login:
+        st.switch_page("pages/2_Login.py")
 
-    st.write('')
-    st.write('')
-
-    if st.session_state.authentication_status is False:
-        st.error("Incorrect username/password")
-
-    reg_username, reg_email, reg_name = None, None, None
-    if authenticator:
-        try:
-            reg_email, reg_username, reg_name, = authenticator.register_user(pre_authorization=False)
-        except RegisterError as e:
-            st.error(f"{e}")
-        try:
-            user_dict = authenticator.authentication_controller.authentication_model.credentials['usernames']
-        except:
-            user_dict = None
-        if reg_username:
-            if user_dict:
-                register_status, message = users.new_user(reg_username, user_dict[reg_username]['password'], reg_email, reg_name)
-
-                if register_status == "Error":
-                    st.error(message)
-                    st.error(user_dict[reg_username]['password'])
-                else:
-                    st.success(message)
-    else:
-        st.write("No Authenticator")
-
-elif st.session_state.authentication_status:
-
-    if 'playing' not in st.session_state:
-        st.session_state.playing = None
-    if 'game_obj' not in st.session_state:
-        st.session_state.game_obj = None
+if st.session_state.authentication_status:
     if 'game_log' not in st.session_state:
         st.session_state.game_log = database.get_user_games(st.session_state.name)
-    if 'game_analysis_id' not in st.session_state:
-        st.session_state.game_analysis_id = None
+if 'featured_game_log' not in st.session_state:
+    st.session_state.featured_game_log = database.get_featured_game_log()
+if 'game_analysis_id' not in st.session_state:
+    st.session_state.game_analysis_id = None
 
-    version = "0.3.0"
-    st.markdown(f'<p class="version-font">v{version}</p>', unsafe_allow_html=True)
+st.subheader("Featured Games")
+with st.expander("Select Game"):
+    if not st.session_state.featured_game_log.empty:
+        featured_game_choice = st.dataframe(st.session_state.featured_game_log[['Date', 'Player', 'Opponent', 'Winner', 'Deck', 'Opponent Deck', 'Likes']], on_select='rerun', selection_mode='single-row', hide_index=True)
+    else:
+        featured_game_choice = None
+        st.write("No featured games.")
+
+c1, c2, c3, c4 = st.columns([1, 1, 1, 6])
+analyze_games = c1.button("Analyze", key='analyze_featured_games')
+if analyze_games:
+    if featured_game_choice:
+        selected_featured_game = featured_game_choice['selection']['rows']
+        if len(selected_featured_game) == 0:
+            st.error("No game selected")
+        else:
+            st.session_state.game_id = st.session_state.featured_game_log.iloc[selected_featured_game[0]]['ID'][0]
+            st.switch_page("pages/1_Game_Analysis.py")
+if st.session_state.name:
+    like_game = c2.button("💙")
+    if like_game:
+        if featured_game_choice:
+            selected_featured_game = featured_game_choice['selection']['rows']
+            if len(selected_featured_game) == 0:
+                st.error("No game selected")
+            else:
+                status, message = database.like_game(st.session_state.featured_game_log.iloc[selected_featured_game[0]]['ID'][0], st.session_state.name)
+                if status:
+                    st.success(message)
+                else:
+                    st.error(message)
+
+if st.session_state.authentication_status:
     st.divider()
-    # st.subheader("Launch The Crucible Online")
-    # st.write('')
-    # launch = st.button("Play")
-    # if launch and not st.session_state.playing:
-    #     st.session_state.playing = True
-    #     st.session_state.game_obj = browser.play(st.session_state.name, None)
-    # if launch and st.session_state.playing:
-    #     st.error("The Crucible is already running")
-    # if st.session_state.game_obj:
-    #     st.session_state.playing = False
-    #     st.session_state.game_obj = None
-
-    # st.divider()
-    st.subheader("Analyze Game")
+    st.subheader("My Games")
     with st.expander("Select Game"):
         if not st.session_state.game_log.empty:
             game_choice = st.dataframe(st.session_state.game_log[['Date', 'Deck', 'Opponent Deck', 'Opponent', 'Winner']], on_select='rerun', selection_mode='single-row', hide_index=True)
         else:
             game_choice = None
             st.write("No games played.")
-    analyze_games = st.button("Analyze", key='analyze_games')
+    c1, c2, c3, c4 = st.columns([1, 1, 1, 6])
+    analyze_games = c1.button("Analyze", key='analyze_games')
     if analyze_games:
         if game_choice:
             selected_game = game_choice['selection']['rows']
@@ -120,6 +102,18 @@ elif st.session_state.authentication_status:
             else:
                 st.session_state.game_id = st.session_state.game_log.iloc[selected_game[0]]['ID']
                 st.switch_page("pages/1_Game_Analysis.py")
+    feature_games = c2.button("Feature", key='feature_games')
+    if feature_games:
+        if game_choice:
+            selected_game = game_choice['selection']['rows']
+            if len(selected_game) == 0:
+                st.error("No game selected")
+            else:
+                game_id = st.session_state.game_log.iloc[selected_game[0]]['ID']
+                if database.feature_game(game_id):
+                    st.success("Game featured!")
+                else:
+                    st.error("Game has already been featured.")
 
     st.divider()
     st.subheader("Analyze Deck")
@@ -128,8 +122,7 @@ elif st.session_state.authentication_status:
     analyze_deck = st.button("Analyze", key='analyze_deck')
     if analyze_deck:
         pass
-
     st.write('')
     st.write('')
     st.write('')
-    authenticator.logout()
+    users.authenticator.logout()

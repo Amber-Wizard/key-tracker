@@ -68,3 +68,55 @@ def get_user_games(username):
     data = db.find({'Player': username})
     df = to_dataframe(data)
     return df
+
+
+def feature_game(gid):
+    db = get_database('Featured Games')
+
+    existing_game = db.find_one({'ID': gid})
+
+    if existing_game:
+        return False
+
+    featured_game_dict = {'ID': gid, 'Likes': 0, 'Likers': []}
+    return db.insert_one(featured_game_dict)
+
+
+def get_featured_games():
+    db = get_database('Featured Games')
+    featured_games = db.find()
+    df = to_dataframe(featured_games)
+    return df
+
+
+def get_featured_game_log():
+    featured_games = get_featured_games()
+    for index, row in featured_games.iterrows():
+        game_id = row['ID'][0]  # Extract the ID from the list
+        game_data = get_game(game_id)
+
+        if game_data:
+            for attribute in ['Date', 'Player', 'Opponent', 'Winner', 'Deck', 'Opponent Deck']:
+                featured_games.at[index, attribute] = game_data.get(attribute, [''])[0]
+
+    sorted_games = featured_games.sort_values(by=['Likes', 'Date'], ascending=[False, False])
+    return sorted_games
+
+
+def like_game(gid, user):
+    db = get_database('Featured Games')
+
+    game = db.find_one({'ID': gid})
+
+    if not game:
+        return False, f"Game {gid} not found."
+
+    if user in game['Likers']:
+        return False, "Already liked"
+
+    db.update_one(
+        {'ID': gid},
+        {'$inc': {'Likes': 1}, '$push': {'Likers': user}}
+    )
+
+    return True, "Liked game"

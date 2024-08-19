@@ -1,4 +1,5 @@
 import pandas as pd
+import streamlit as st
 import streamlit_authenticator as stauth
 import streamlit_authenticator.utilities.hasher as hasher
 
@@ -26,6 +27,7 @@ def new_user(username, password, email, tco_name):
     return "Success", "Account successfully registered"
 
 
+@st.cache_resource
 def get_authenticator():
     user_db = database.get_all_users()
     user_dict = {'usernames': {}}
@@ -36,8 +38,10 @@ def get_authenticator():
             'password': user['password']
         }
 
-    authenticator = stauth.Authenticate(user_dict, 'keyforge_tracker', 'SpdfdgAEO1QTCF7lYXTO265VuBXlSpMm')
-    return authenticator
+    auth = stauth.Authenticate(user_dict, 'keyforge_tracker', 'SpdfdgAEO1QTCF7lYXTO265VuBXlSpMm')
+    return auth
+
+authenticator = get_authenticator()
 
 
 def check_pw(username, password):
