@@ -27,7 +27,6 @@ def new_user(username, password, email, tco_name):
     return "Success", "Account successfully registered"
 
 
-@st.cache_resource
 def get_authenticator():
     user_db = database.get_all_users()
     user_dict = {'usernames': {}}
@@ -41,7 +40,6 @@ def get_authenticator():
     auth = stauth.Authenticate(user_dict, st.secrets['mongo']['username'], st.secrets['mongo']['password'])
     return auth
 
-authenticator = get_authenticator()
 
 
 def check_pw(username, password):

@@ -128,4 +128,5 @@ else:
     st.write('')
     st.write('')
     st.write('')
-    users.authenticator.logout()
+    authenticator = users.get_authenticator()
+    authenticator.logout()
