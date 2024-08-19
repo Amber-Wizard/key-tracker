@@ -266,8 +266,10 @@ else:
             if sum(new_cards_played.values()) > 0 and sum(new_cards_discarded.values()) > 0 and sum(new_cards_played.values()) + sum(new_cards_discarded.values()) <= 10:
                 if sum(new_cards_played.values()) <= 5 and sum(new_cards_discarded.values()) <= 5:
                     card_split_ratio = 6
-                else:
+                elif sum(new_cards_played.values()) > 5:
                     card_split_ratio = sum(new_cards_played.values()) + 1
+                else:
+                    card_split_ratio = 11-sum(new_cards_discarded.values())
 
                 c1, c2 = st.columns([card_split_ratio, 11-card_split_ratio])
                 c1.subheader("Cards Played")
@@ -342,8 +344,10 @@ else:
             if len(first_board) > 0 and len(second_board) > 0 and len(first_board) + len(second_board) <= 10:
                 if len(first_board) <= 5 and len(second_board) <= 5:
                     card_split_ratio = 6
-                else:
+                elif len(first_board > 5):
                     card_split_ratio = len(first_board) + 1
+                else:
+                    card_split_ratio = 11 - len(second_board)
 
                 c1, c2 = st.columns([card_split_ratio, 11-card_split_ratio])
                 c1.subheader(fb_name)
