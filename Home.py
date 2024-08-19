@@ -43,7 +43,7 @@ if 'authentication_status' not in st.session_state or st.session_state.authentic
     if login:
         st.switch_page("pages/2_Login.py")
 
-if st.session_state.authentication_status:
+if 'authentication_status' in st.session_state:
     if 'game_log' not in st.session_state:
         st.session_state.game_log = database.get_user_games(st.session_state.name)
 if 'featured_game_log' not in st.session_state:
@@ -83,7 +83,7 @@ if st.session_state.name:
                 else:
                     st.error(message)
 
-if st.session_state.authentication_status:
+if 'authentication_status' in st.session_state:
     st.divider()
     st.subheader("My Games")
     with st.expander("Select Game"):
