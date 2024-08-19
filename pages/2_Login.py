@@ -26,8 +26,6 @@ Validator.validate_name = custom_validate_name
 authenticator = users.authenticator
 
 if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
-    if 'authentication_status' not in st.session_state:
-        st.session_state.authentication_status = None
 
     name, auth_status, username = authenticator.login(location="main")
     if st.session_state.authentication_status is False:
