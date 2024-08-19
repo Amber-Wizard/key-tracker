@@ -91,16 +91,19 @@ def get_featured_games():
 
 def get_featured_game_log():
     featured_games = get_featured_games()
-    for index, row in featured_games.iterrows():
-        game_id = row['ID'][0]  # Extract the ID from the list
-        game_data = get_game(game_id)
+    if len(featured_games) > 1:
+        for index, row in featured_games.iterrows():
+            game_id = row['ID'][0]  # Extract the ID from the list
+            game_data = get_game(game_id)
 
-        if game_data:
-            for attribute in ['Date', 'Player', 'Opponent', 'Winner', 'Deck', 'Opponent Deck']:
-                featured_games.at[index, attribute] = game_data.get(attribute, [''])[0]
+            if game_data:
+                for attribute in ['Date', 'Player', 'Opponent', 'Winner', 'Deck', 'Opponent Deck']:
+                    featured_games.at[index, attribute] = game_data.get(attribute, [''])[0]
 
-    sorted_games = featured_games.sort_values(by=['Likes', 'Date'], ascending=[False, False])
-    return sorted_games
+        sorted_games = featured_games.sort_values(by=['Likes', 'Date'], ascending=[False, False])
+        return sorted_games
+    else:
+        return None
 
 
 def like_game(gid, user):

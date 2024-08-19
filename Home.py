@@ -136,7 +136,6 @@ else:
                 database.delete_game(game_id)
                 st.success("Game deleted")
 
-
     st.divider()
     st.subheader("Analyze Deck")
     with st.expander("Select Deck"):
