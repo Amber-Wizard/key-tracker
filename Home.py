@@ -125,6 +125,17 @@ else:
                     st.success("Game featured!")
                 else:
                     st.error("Game has already been featured.")
+    delete_games = c3.button("Delete", key='delete_games', type='primary')
+    if delete_games:
+        if game_choice:
+            selected_game = game_choice['selection']['rows']
+            if len(selected_game) == 0:
+                st.error("No game selected")
+            else:
+                game_id = st.session_state.game_log.iloc[selected_game[0]]['ID']
+                database.delete_game(game_id)
+                st.success("Game deleted")
+
 
     st.divider()
     st.subheader("Analyze Deck")
