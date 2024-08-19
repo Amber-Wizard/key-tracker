@@ -27,9 +27,16 @@ st.markdown("""
 }
 """, unsafe_allow_html=True)
 
+if 'login_type' not in st.session_state:
+    st.session_state.login_type = 'normal'
+if 'auto_login_check' not in st.session_state:
+    st.session_state.auto_login_check = False
+
 if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
     display_name = "Zenzi"
-    st.switch_page('pages/2_Login.py')
+    if not st.session_state.auto_login_check:
+        st.session_state.login_type = 'special'
+        st.switch_page('pages/2_Login.py')
 else:
     display_name = st.session_state.name
 
