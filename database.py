@@ -95,10 +95,11 @@ def get_featured_game_log():
         game_id = row['ID'][0]  # Extract the ID from the list
         game_data = get_game(game_id)
 
-        if game_data != None:
+        if game_data:
             for attribute in ['Date', 'Player', 'Opponent', 'Winner', 'Deck', 'Opponent Deck']:
                 featured_games.at[index, attribute] = game_data.get(attribute, [''])[0]
     if 'Date' in featured_games.columns:
+        featured_games = featured_games.dropna(subset=['Date'])
         sorted_games = featured_games.sort_values(by=['Likes', 'Date'], ascending=[False, False])
         return sorted_games
     else:
