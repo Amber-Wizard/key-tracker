@@ -38,18 +38,18 @@ st.markdown("""
     color: #424242 !important;
 }
 .plain-font {
-    font-size: 24px !important;
+    font-size: 22px !important;
 }
 .hero-font {
-    font-size: 24px !important;
+    font-size: 22px !important;
     color: #60b4ff !important;
 }
 .villain-font {
-    font-size: 24px !important;
+    font-size: 22px !important;
     color: #ff4b4b !important;
 }
 .amber-font {
-    font-size: 24px !important;
+    font-size: 22px !important;
     color: #f8df65 !important;
 }
 </style>
