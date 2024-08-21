@@ -234,7 +234,7 @@ else:
             st.session_state.expand_all = False
 
     st.write('')
-    c1, c2 = st.columns([9, 1])
+    c1, c2 = st.columns([8, 1])
     c1.subheader("Turns")
     c2.button("Expand All", on_click=expand_turns)
 
