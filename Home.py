@@ -43,7 +43,24 @@ else:
 c1, c2 = st.columns([9, 1])
 c1.title(f":blue[{display_name}'s] KeyTracker")
 version = "0.4.0"
-st.markdown(f'<p class="version-font">v{version}</p>', unsafe_allow_html=True)
+
+changes = [
+    'Added changelog',
+    'Added actual turns to win vs prediction',
+    'Changed default sorting for My Games to date (descending)',
+    'Added expand all turns button',
+    'Removed creature count from turn recap (redundant)',
+    'Added artifacts to turn recap',
+    'Restructured turn recap',
+    'Removed winner column from featured games selection',
+    'Moved like button',
+    'Added back button to Game Analysis'
+]
+
+with st.expander(fr"$\texttt{{\color{{gray}}\Large v{version}}}$"):
+    st.divider()
+    for c in changes:
+        st.write(f"-{c}")
 st.divider()
 
 if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
@@ -66,7 +83,7 @@ if 'game_analysis_id' not in st.session_state:
 st.subheader("Featured Games")
 with st.expander("Select Game"):
     if len(st.session_state.featured_game_log) > 0:
-        featured_game_choice = st.dataframe(st.session_state.featured_game_log[['Date', 'Player', 'Opponent', 'Winner', 'Deck', 'Opponent Deck', 'Likes']], on_select='rerun', selection_mode='single-row', hide_index=True)
+        featured_game_choice = st.dataframe(st.session_state.featured_game_log[['Date', 'Player', 'Opponent', 'Deck', 'Opponent Deck', 'Likes']], on_select='rerun', selection_mode='single-row', hide_index=True)
     else:
         featured_game_choice = None
         st.write("No featured games.")
@@ -81,19 +98,6 @@ if analyze_games:
         else:
             st.session_state.game_id = st.session_state.featured_game_log.iloc[selected_featured_game[0]]['ID'][0]
             st.switch_page("pages/1_Game_Analysis.py")
-if 'name' in st.session_state and st.session_state.name:
-    like_game = c2.button("💙")
-    if like_game:
-        if featured_game_choice:
-            selected_featured_game = featured_game_choice['selection']['rows']
-            if len(selected_featured_game) == 0:
-                st.error("No game selected")
-            else:
-                status, message = database.like_game(st.session_state.featured_game_log.iloc[selected_featured_game[0]]['ID'][0], st.session_state.name)
-                if status:
-                    st.success(message)
-                else:
-                    st.error(message)
 
 if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
     pass
