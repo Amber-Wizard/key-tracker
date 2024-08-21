@@ -67,14 +67,16 @@ def get_user_games(username):
     db = get_database('Games')
     data = db.find({'Player': username})
     df = to_dataframe(data)
-    return df
+    sorted_df = df.sort_values(by='Date', ascending=False)
+    return sorted_df
 
 
 def get_all_games():
     db = get_database('Games')
     data = db.find()
     df = to_dataframe(data)
-    return df
+    sorted_df = df.sort_values(by='Date', ascending=False)
+    return sorted_df
 
 
 def feature_game(gid):
@@ -94,6 +96,16 @@ def get_featured_games():
     featured_games = db.find()
     df = to_dataframe(featured_games)
     return df
+
+
+def check_featured(gid):
+    db = get_database('Featured Games')
+    featured_games = db.find()
+    df = to_dataframe(featured_games)
+    if df['ID'].apply(lambda x: gid in x).any():
+        return True
+    else:
+        return False
 
 
 def get_featured_game_log():
