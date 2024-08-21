@@ -291,7 +291,7 @@ else:
             else:
                 new_cards_discarded = subtract_dicts(cards_discarded[t - 1], cards_discarded_turn)
 
-            remove_chars = "æ””“!,.-…’'é"
+            remove_chars = "æ””“!,.-…’'éĕŏ"
 
             if p == player:
                 st.subheader("Player Hand")
