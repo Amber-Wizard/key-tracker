@@ -88,8 +88,7 @@ with st.expander("Select Game"):
         featured_game_choice = None
         st.write("No featured games.")
 
-c1, c2, c3, c4 = st.columns([1, 1, 1, 6])
-analyze_games = c1.button("Analyze", key='analyze_featured_games')
+analyze_games = st.button("Analyze", key='analyze_featured_games')
 if analyze_games:
     if featured_game_choice:
         selected_featured_game = featured_game_choice['selection']['rows']
