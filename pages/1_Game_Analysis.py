@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 
 import database
 import graphing
@@ -81,6 +82,23 @@ if game_id:
 if 'game_data' not in st.session_state:
     st.error("No game selected")
 else:
+    c1, c2, c3, c4 = st.columns([22, 1, 1, 1])
+    c1.markdown(f'<b class="game-data-font">{st.session_state.game_data["Date"][0]}</b>', unsafe_allow_html=True)
+
+    featured = database.check_featured(game_id)
+    if 'name' in st.session_state and st.session_state.name and featured:
+        like_game = c2.button("💙")
+        if like_game:
+            status, message = database.like_game(game_id, st.session_state.name)
+            if status:
+                st.success(message)
+            else:
+                st.error(message)
+
+    home = c3.button("↩")
+    if home:
+        st.switch_page("Home.py")
+    st.write('')
     c1, c2 = st.columns([7, 1])
     c1.markdown(f'<b class="deck-font">{st.session_state.game_data["Deck"][0]}</b>', unsafe_allow_html=True)
     c2.link_button("Deck Info", st.session_state.game_data["Deck Link"][0])
@@ -88,7 +106,6 @@ else:
     c1, c2 = st.columns([7, 1])
     c1.markdown(f'<b class="deck-font">{st.session_state.game_data["Opponent Deck"][0]}</b>', unsafe_allow_html=True)
     c2.link_button("Deck Info", st.session_state.game_data["Opponent Deck Link"][0])
-    st.markdown(f'<b class="game-data-font">{st.session_state.game_data["Date"][0]}</b>', unsafe_allow_html=True)
     st.divider()
     c1, c2, c3 = st.columns(3)
 
@@ -119,6 +136,9 @@ else:
     st.write(' ')
 
     game_df, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, player_card_data, opponent_card_data = graphing.analyze_game(player, st.session_state.game_data)
+    if not game_df.empty:
+        length = len(game_df) - 1
+        game_df['Actual'] = (length - pd.Series(game_df.index)) / 2
     c1, c2 = st.columns(2)
     c1.subheader("Total Amber Value")
     c1.line_chart(
@@ -141,13 +161,20 @@ else:
     )
 
     c1.subheader("Prediction")
+    if winner == player:
+        actual_color = (96, 180, 255, 0.5)
+    elif winner == opponent:
+        actual_color = (255, 75, 75, 0.5)
+    else:
+        actual_color = (248, 223, 101, 0.5)
+
     c1.line_chart(
         game_df,
         x=None,
-        y=['Player Prediction', 'Opponent Prediction'],
+        y=['Actual', 'Player Prediction', 'Opponent Prediction'],
         x_label='Turn',
         y_label='Turns to Win',
-        color=[(255, 75, 75), (96, 180, 255)]
+        color=[actual_color, (255, 75, 75), (96, 180, 255)]
     )
 
     c2.subheader("Creatures")
@@ -191,13 +218,25 @@ else:
     c2.plotly_chart(opponent_house_calls, use_container_width=True)
 
     st.subheader("Card Data")
-    with st.expander("Player Card Data"):
+    with st.expander(r"$\textsf{\large Player Card Data}$"):
         st.dataframe(player_card_data, hide_index=True)
 
-    with st.expander("Opponent Card Data"):
+    with st.expander(r"$\textsf{\large Opponent Card Data}$"):
         st.dataframe(opponent_card_data, hide_index=True)
 
-    st.subheader("Turns")
+    if 'expand_all' not in st.session_state:
+        st.session_state.expand_all = False
+
+    def expand_turns():
+        if not st.session_state.expand_all:
+            st.session_state.expand_all = True
+        else:
+            st.session_state.expand_all = False
+
+    st.write('')
+    c1, c2 = st.columns([9, 1])
+    c1.subheader("Turns")
+    c2.button("Expand All", on_click=expand_turns)
 
     link_base = "https://keyforge-card-images.s3-us-west-2.amazonaws.com/card-imgs/"
 
@@ -208,7 +247,8 @@ else:
             p = starting_player
         else:
             p = second_player
-        with st.expander(f"{t}: Turn {round((t+1.1)/2)} - {p}"):
+        turn_string = f"{t}: Turn {round((t+1.1)/2)} - {p}"
+        with st.expander(fr"$\texttt{{\large {turn_string}}}$", expanded=st.session_state.expand_all):
             c1, c2, c3 = st.columns(3)
             keys = game_log[p]['keys'][t]
             new_keys = max(keys - game_log[p]['keys'][t-1], 0)
@@ -228,11 +268,15 @@ else:
 
             c2.markdown(f'<b class="amber-font">Amber: {game_log[p]["amber"][t]} (+{amber_gained_turn})</b>', unsafe_allow_html=True)
 
-            c3.markdown(f'<b class="plain-font">Creatures: {game_log[p]["creatures"][t]}</b>', unsafe_allow_html=True)
-
             hands = st.session_state.game_data['Game Log'][0]['player_hand']
             player_boards = st.session_state.game_data['Game Log'][0][player]['board']
             opponent_boards = st.session_state.game_data['Game Log'][0][opponent]['board']
+            if 'artifacts' in st.session_state.game_data['Game Log'][0][player]:
+                player_artifacts = st.session_state.game_data['Game Log'][0][player]['artifacts']
+                opponent_artifacts = st.session_state.game_data['Game Log'][0][opponent]['artifacts']
+            else:
+                player_artifacts = [[] for _ in range(len(player_boards))]
+                opponent_artifacts = [[] for _ in range(len(opponent_boards))]
             cards_played = st.session_state.game_data['Game Log'][0][p]['individual_cards_played']
             cards_played_turn = cards_played[t]
             if t < 2:
@@ -251,17 +295,14 @@ else:
 
             if p == player:
                 st.subheader("Player Hand")
-                cols = st.columns(11)
-                last_column = 0
-                for card in hands[max(t-1, 0)]:
+                cols = st.columns(max(11, len(hands[max(t-1, 0)])))
+
+                for i, card in enumerate(hands[max(t-1, 0)]):
                     translation_table = str.maketrans('', '', remove_chars)
                     link_name = card.lower().translate(translation_table).replace(' ', '-')
                     image_link = f"{link_base}{link_name}.png"
-                    cols[last_column].image(image_link)
-                    if last_column < 10:
-                        last_column += 1
-                    else:
-                        last_column = 0
+                    cols[i].image(image_link)
+
                 st.divider()
 
             if sum(new_cards_played.values()) > 0 and sum(new_cards_discarded.values()) > 0 and sum(new_cards_played.values()) + sum(new_cards_discarded.values()) <= 10:
@@ -335,74 +376,43 @@ else:
             if p == player:
                 first_board = player_boards[t]
                 second_board = opponent_boards[t]
+                first_artifact = player_artifacts[t]
+                second_artifact = opponent_artifacts[t]
                 fb_name = "Player Board"
                 sb_name = "Opponent Board"
             else:
                 first_board = opponent_boards[t]
                 second_board = player_boards[t]
+                first_artifact = opponent_artifacts[t]
+                second_artifact = player_artifacts[t]
                 fb_name = "Opponent Board"
                 sb_name = "Player Board"
-            
-            if len(first_board) > 0 and len(second_board) > 0 and len(first_board) + len(second_board) <= 10:
-                if len(first_board) <= 5 and len(second_board) <= 5:
-                    card_split_ratio = 6
-                elif len(first_board) > 5:
-                    card_split_ratio = len(first_board) + 1
-                else:
-                    card_split_ratio = 11 - len(second_board)
 
-                c1, c2 = st.columns([card_split_ratio, 11-card_split_ratio])
-                c1.subheader(fb_name)
-                c2.subheader(sb_name)
+            if len(first_artifact) > 0:
+                c_number = max(11, max(len(first_board), 2) + max(len(first_artifact), 2) + 1, max(len(second_board), 2) + max(len(second_artifact), 2) + 1)
+            else:
+                c_number = max(11, len(first_board), len(second_board))
 
-                cols = st.columns(11)
-                last_column = 0
-                for card in first_board:
+            for board, artifact, b_name in zip([first_board, second_board], [first_artifact, second_artifact], [fb_name, sb_name]):
+                c1, c2 = st.columns([c_number - max(len(artifact), 2), max(len(artifact), 2)])
+                if len(board) > 0 or len(artifact) > 0:
+                    c1.subheader(b_name)
+                if len(artifact) > 0:
+                    c2.subheader("Artifacts")
+    
+                cols = st.columns(c_number)
+    
+                for i, card in enumerate(board):
                     translation_table = str.maketrans('', '', remove_chars)
                     link_name = card.lower().translate(translation_table).replace(' ', '-')
                     image_link = f"{link_base}{link_name}.png"
-                    cols[last_column].image(image_link)
-                    if last_column < card_split_ratio-1:
-                        last_column += 1
-                    else:
-                        last_column = 0
-                last_column = card_split_ratio
-                for card in second_board:
+                    cols[i].image(image_link)
+    
+                for j, card in enumerate(artifact):
                     translation_table = str.maketrans('', '', remove_chars)
                     link_name = card.lower().translate(translation_table).replace(' ', '-')
                     image_link = f"{link_base}{link_name}.png"
-                    cols[last_column].image(image_link)
-                    if last_column < 10:
-                        last_column += 1
+                    if len(artifact) == 1:
+                        cols[c_number-2].image(image_link)
                     else:
-                        last_column = card_split_ratio
-
-            if len(first_board) > 0 and (len(first_board) + len(second_board) > 10 or len(second_board) == 0):
-                st.subheader(fb_name)
-
-                cols = st.columns(11)
-                last_column = 0
-                for card in first_board:
-                    translation_table = str.maketrans('', '', remove_chars)
-                    link_name = card.lower().translate(translation_table).replace(' ', '-')
-                    image_link = f"{link_base}{link_name}.png"
-                    cols[last_column].image(image_link)
-                    if last_column < 10:
-                        last_column += 1
-                    else:
-                        last_column = 0
-
-            if len(second_board) > 0 and (len(first_board) + len(second_board) > 10 or len(first_board) == 0):
-                st.subheader(sb_name)
-
-                cols = st.columns(11)
-                last_column = 0
-                for card in second_board:
-                    translation_table = str.maketrans('', '', remove_chars)
-                    link_name = card.lower().translate(translation_table).replace(' ', '-')
-                    image_link = f"{link_base}{link_name}.png"
-                    cols[last_column].image(image_link)
-                    if last_column < 10:
-                        last_column += 1
-                    else:
-                        last_column = 0
+                        cols[c_number-len(artifact)+j].image(image_link)
