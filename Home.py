@@ -42,7 +42,7 @@ else:
 
 c1, c2 = st.columns([9, 1])
 c1.title(f":blue[{display_name}'s] KeyTracker")
-version = "0.4.0"
+version = "0.4.1"
 
 changes = [
     'Added changelog',
