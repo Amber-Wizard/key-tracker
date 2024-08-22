@@ -20,7 +20,7 @@ def subtract_dicts(old_dict, new_dict):
 
 try:
     st.set_page_config(
-        page_title="Analysis - KeyTracker",
+        page_title="Game Analysis - KeyTracker",
         page_icon="🔑",
         layout="wide",
         initial_sidebar_state="collapsed"
@@ -291,7 +291,7 @@ else:
             else:
                 new_cards_discarded = subtract_dicts(cards_discarded[t - 1], cards_discarded_turn)
 
-            remove_chars = "æ””“!,.-…’'éĕŏăŭĭ"
+            remove_chars = "æ””“!,.-…’'éĕŏăŭĭ\""
 
             if p == player:
                 st.subheader("Player Hand")
