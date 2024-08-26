@@ -47,12 +47,10 @@ if 'authentication_status' not in st.session_state or st.session_state.authentic
             user_dict = None
         if reg_username:
             if user_dict:
-                register_status, message = users.new_user(reg_username, user_dict[reg_username]['password'],
-                                                          reg_email, reg_name)
+                register_status, message = users.new_user(reg_username, user_dict[reg_username]['password'], reg_email, reg_name)
 
                 if register_status == "Error":
                     st.error(message)
-                    st.error(user_dict[reg_username]['password'])
                 else:
                     st.success(message)
     else:

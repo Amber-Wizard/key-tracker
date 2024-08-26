@@ -15,12 +15,13 @@ def new_user(username, password, email, tco_name):
     users = database.get_all_users()
     user_df = database.to_dataframe(users)
     if email in user_df['email'].values:
-        print("Email exists")
         return "Error", f"Account already registered for {email}"
 
     if username in user_df['username'].values:
-        print("Username exists")
         return "Error", "Username already exists"
+
+    if tco_name in user_df['tco_name'].values:
+        return "Error", "TCO name already exists"
 
     database.add_user(username, password, email, tco_name)
 
@@ -39,7 +40,6 @@ def get_authenticator():
 
     auth = stauth.Authenticate(user_dict, st.secrets['mongo']['username'], st.secrets['mongo']['password'])
     return auth
-
 
 
 def check_pw(username, password):
