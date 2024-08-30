@@ -164,7 +164,7 @@ else:
     st.divider()
     st.subheader("Analyze Deck")
     with st.expander("Select Deck"):
-        if not st.session_state.deck_log.empty:
+        if not st.session_state.deck_log.empty and st.session_state.deck_log is not None:
             deck_choice = st.dataframe(st.session_state.deck_log[['Deck', 'Set', 'SAS', 'Games', 'Win-Loss', 'Winrate', 'ELO']], on_select='rerun', selection_mode='single-row', hide_index=True)
         else:
             deck_choice = None
