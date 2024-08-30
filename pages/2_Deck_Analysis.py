@@ -159,7 +159,7 @@ if 'deck_selection' not in st.session_state:
     wins = (deck_games['Winner'] == pilot).sum()
     games = len(deck_games)
     losses = games - wins
-    winrate = 100 * wins / games
+    winrate = round(100 * wins / games)
 
 
 def pull_deck_data(d, p):
