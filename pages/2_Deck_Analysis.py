@@ -178,9 +178,10 @@ else:
     deck = st.session_state.deck
     score = st.session_state.score
     c1, c2, c3, c4 = st.columns([22, 1, 1, 1])
-    if 'name' in st.session_state:
-        if st.session_state.name != pilot:
-            c1.markdown(f'<b class="pilot-font">{deck}</b>', unsafe_allow_html=True)
+    if 'name' in st.session_state and st.session_state.name == pilot:
+        pass
+    else:
+        c1.markdown(f'<b class="pilot-font">{deck}</b>', unsafe_allow_html=True)
     home = c3.button("🏠")
     if home:
         st.switch_page("Home.py")
