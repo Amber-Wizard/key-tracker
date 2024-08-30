@@ -81,30 +81,39 @@ def get_user_games(username):
     db = get_database('Games')
     data = db.find({'Player': username})
     df = to_dataframe(data)
-    sorted_df = df.sort_values(by='Date', ascending=False)
-    return sorted_df
+    if len(df) > 0:
+        sorted_df = df.sort_values(by='Date', ascending=False)
+        return sorted_df
+    else:
+        return None
 
 
 def get_all_games(trim_lists=True):
     db = get_database('Games')
     data = db.find()
     df = to_dataframe(data)
-    sorted_df = df.sort_values(by='Date', ascending=False)
-    if trim_lists:
-        sorted_df = sorted_df.applymap(lambda x: x[0] if isinstance(x, list) and len(x) == 1 else x)
+    if len(df) > 0:
+        sorted_df = df.sort_values(by='Date', ascending=False)
+        if trim_lists:
+            sorted_df = sorted_df.applymap(lambda x: x[0] if isinstance(x, list) and len(x) == 1 else x)
 
-    return sorted_df
+        return sorted_df
+    else:
+        return None
 
 
 def get_deck_games(username, deck, trim_lists=False):
     db = get_database('Games')
     data = db.find({'Player': username, 'Deck': deck})
     df = to_dataframe(data)
-    sorted_df = df.sort_values(by='Date', ascending=False)
-    if trim_lists:
-        sorted_df = sorted_df.applymap(lambda x: x[0] if isinstance(x, list) and len(x) == 1 else x)
+    if len(df) > 0:
+        sorted_df = df.sort_values(by='Date', ascending=False)
+        if trim_lists:
+            sorted_df = sorted_df.applymap(lambda x: x[0] if isinstance(x, list) and len(x) == 1 else x)
 
-    return sorted_df
+        return sorted_df
+    else:
+        return None
 
 
 def get_dok_cache():
