@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import urllib.error
 import pymongo
+from bson.objectid import ObjectId
 
 import dok_api
 
@@ -223,7 +224,7 @@ def get_elo(player, deck):
 
 def get_elo_by_id(share_id):
     db = get_database('ELO')
-    query = {'_id': share_id}
+    query = {'_id': ObjectId(share_id)}
     data = db.find_one(query)
 
     if data:
