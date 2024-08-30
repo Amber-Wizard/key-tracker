@@ -123,7 +123,7 @@ else:
     st.divider()
     st.subheader("My Games")
     with st.expander("Select Game"):
-        if not st.session_state.game_log.empty:
+        if st.session_state.game_log is not None and not st.session_state.game_log.empty:
             game_choice = st.dataframe(st.session_state.game_log[['Date', 'Deck', 'Opponent Deck', 'Opponent', 'Winner']], on_select='rerun', selection_mode='single-row', hide_index=True)
         else:
             game_choice = None
@@ -164,7 +164,7 @@ else:
     st.divider()
     st.subheader("Analyze Deck")
     with st.expander("Select Deck"):
-        if not st.session_state.deck_log.empty and st.session_state.deck_log is not None:
+        if st.session_state.deck_log is not None and not st.session_state.deck_log.empty:
             deck_choice = st.dataframe(st.session_state.deck_log[['Deck', 'Set', 'SAS', 'Games', 'Win-Loss', 'Winrate', 'ELO']], on_select='rerun', selection_mode='single-row', hide_index=True)
         else:
             deck_choice = None
