@@ -155,6 +155,7 @@ if 'deck_games' not in st.session_state:
 
 
 if 'deck_selection' not in st.session_state:
+    deck_games = st.session_state.deck_games
     deck_link = st.session_state.deck_games['Deck Link'].iat[0]
     wins = (deck_games['Winner'] == pilot).sum()
     games = len(deck_games)
