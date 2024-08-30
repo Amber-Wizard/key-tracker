@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 
 import database
+import dok_api
 import graphing
 
 
@@ -39,6 +40,9 @@ st.markdown("""
 }
 .plain-font {
     font-size: 22px !important;
+}
+.small-font {
+    font-size: 12px !important;
 }
 .hero-font {
     font-size: 22px !important;
@@ -95,7 +99,7 @@ else:
             else:
                 st.error(message)
 
-    home = c3.button("↩")
+    home = c3.button("🏠")
     if home:
         st.switch_page("Home.py")
     st.write('')
@@ -207,6 +211,26 @@ else:
         color=[(255, 75, 75), (96, 180, 255)]
     )
 
+    c1.subheader("Amber Defense")
+    c1.line_chart(
+        game_df,
+        x=None,
+        y=['Player Amber Defense', 'Opponent Amber Defense'],
+        x_label='Turn',
+        y_label='Amber Defense (%)',
+        color=[(255, 75, 75), (96, 180, 255)]
+    )
+
+    c2.subheader("Creature Survival Rate")
+    c2.line_chart(
+        game_df,
+        x=None,
+        y=['Player Survival Rate', 'Opponent Survival Rate'],
+        x_label='Turn',
+        y_label='Survival Rate (%)',
+        color=[(255, 75, 75), (96, 180, 255)]
+    )
+
     c1.subheader("Player Amber Sources")
     c1.plotly_chart(player_amber_sources, use_container_width=True)
     c2.subheader("Opponent Amber Sources")
@@ -241,15 +265,58 @@ else:
     link_base = "https://keyforge-card-images.s3-us-west-2.amazonaws.com/card-imgs/"
 
     game_log = st.session_state.game_data['Game Log'][0]
+    if ["Turn 1 -  ", player] in st.session_state.game_data['Player Frags'][0]:
+        player_messages = st.session_state.game_data['Player Frags'][0]
+        opponent_messages = st.session_state.game_data['Opponent Frags'][0]
+    elif ["Turn 1 -  ", opponent] in st.session_state.game_data['Player Frags'][0]:
+        opponent_messages = st.session_state.game_data['Player Frags'][0]
+        player_messages = st.session_state.game_data['Opponent Frags'][0]
+    else:
+        player_messages = None
+        opponent_messages = None
+
+    card_name_list = dok_api.card_df['cardTitle'].tolist()
 
     for t in range(len(game_log[starting_player]['cards_played'])):
         if t % 2 == 0:
             p = starting_player
         else:
             p = second_player
-        turn_string = f"{t}: Turn {round((t+1.1)/2)} - {p}"
+        turn_num = round((t + 1.1) / 2)
+        turn_string = f"{t}: Turn {turn_num} - {p}"
+
+        if player_messages is not None:
+            if p == player:
+                p_messages = player_messages
+            elif p == opponent:
+                p_messages = opponent_messages
+            else:
+                p_messages = None
+
+            search_frags = [f"Turn {turn_num} -  ", p]
+
+            try:
+                m_start_index = p_messages.index(search_frags)
+            except:
+                m_start_index = None
+
+            if t == 0:
+                m_start_index = 0
+
+            if m_start_index is not None:
+                search_frags = [f"Turn {turn_num+1} -  ", p]
+                try:
+                    m_finish_index = p_messages.index(search_frags)-2
+                except:
+                    m_finish_index = -1
+            else:
+                m_finish_index = None
+
+        else:
+            m_start_index = None
+
         with st.expander(fr"$\texttt{{\large {turn_string}}}$", expanded=st.session_state.expand_all):
-            c1, c2, c3 = st.columns(3)
+            c1, c2, c3 = st.columns([1, 1, 2])
             keys = game_log[p]['keys'][t]
             new_keys = max(keys - game_log[p]['keys'][t-1], 0)
 
@@ -416,3 +483,32 @@ else:
                         cols[c_number-2].image(image_link)
                     else:
                         cols[c_number-len(artifact)+j].image(image_link)
+
+            if m_start_index is not None:
+                st.divider()
+                show_messages = st.button("Turn Log", key=f"turn_log_{t}")
+                if show_messages:
+                    replacements = {
+                        player: f':blue[{player}]',
+                        opponent: f':red[{opponent}]',
+                        'Æmber': ':orange[Æmber]',
+                        'amber': ':orange[amber]',
+                    }
+                    turn_messages = p_messages[m_start_index:m_finish_index]
+                    for msg in turn_messages:
+                        if " has reconnected " in msg:
+                            pass
+                        elif " has connected to the game server " in msg:
+                            pass
+                        elif " has disconnected.  The game will wait up to 30 seconds for them to reconnect " in msg:
+                            pass
+                        else:
+                            for i in range(len(msg)):
+                                fragment = msg[i]
+                                for old_word, new_word in replacements.items():
+                                    if old_word in fragment:
+                                        msg[i] = fragment.replace(old_word, new_word)
+                                if fragment.strip() in card_name_list:
+                                    msg[i] = f":violet[{fragment}]"
+                            joined_message = ''.join(msg)
+                            st.write(joined_message)

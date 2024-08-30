@@ -1,7 +1,7 @@
-pandas
+pandas~=1.5.3
 numpy
-plotly
-streamlit
+plotly~=5.22.0
+streamlit~=1.36.0
 streamlit-authenticator
-deta
-pymongo
+pymongo~=4.8.0
+requests
