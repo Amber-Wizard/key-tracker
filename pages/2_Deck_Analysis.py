@@ -114,9 +114,13 @@ if 'shareID' in st.query_params:
     st.session_state.share_id = st.query_params.get_all(key='shareID')[0]
 
 if 'deck_selection' in st.session_state:
-    share_id = st.session_state.deck_selection['Share ID'].iat[0]
-    st.query_params['shareID'] = share_id
-    st.session_state.share_id = share_id
+    if 'share_id' not in st.session_state:
+        st.session_state.deck = st.session_state.elo_data['deck']
+        st.session_state.pilot = st.session_state.elo_data['player']
+        st.session_state.score = st.session_state.elo_data['score']
+        share_id = st.session_state.elo_data['_id']
+        st.query_params['shareID'] = share_id
+        st.session_state.share_id = share_id
     deck_link = st.session_state.deck_selection["Deck Link"].iloc[0]
     wins, losses = st.session_state.deck_selection["Win-Loss"].iat[0].split('-')
     games = st.session_state.deck_selection["Games"].iloc[0]

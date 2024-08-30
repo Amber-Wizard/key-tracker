@@ -155,7 +155,6 @@ def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_n
 def calculate_survival_rate(player_data):
     creatures_played = []
     individual_cards_played = player_data['individual_cards_played']
-    print(individual_cards_played)
     for i, card_list in enumerate(individual_cards_played):
         creatures_played_turn = 0
 

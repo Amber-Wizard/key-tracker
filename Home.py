@@ -165,7 +165,7 @@ else:
     st.subheader("Analyze Deck")
     with st.expander("Select Deck"):
         if st.session_state.deck_log is not None and not st.session_state.deck_log.empty:
-            deck_choice = st.dataframe(st.session_state.deck_log[['Deck', 'Set', 'SAS', 'Games', 'Win-Loss', 'Winrate', 'ELO']], on_select='rerun', selection_mode='single-row', hide_index=True)
+            deck_choice = st.dataframe(st.session_state.deck_log[['Deck', 'Games', 'Win-Loss', 'Winrate']], on_select='rerun', selection_mode='single-row', hide_index=True)
         else:
             deck_choice = None
             st.write("No games played.")
@@ -182,7 +182,10 @@ else:
                     del st.session_state['deck_games']
                 if 'deck_data' in st.session_state:
                     del st.session_state['deck_data']
+
                 st.session_state.deck_selection = st.session_state.deck_log.iloc[selected_deck]
+                elo_data = database.get_elo(st.session_state.name, st.session_state.deck_selection['Deck'].iat[0][0])
+                st.session_state.elo_data = elo_data
                 st.switch_page("pages/2_Deck_Analysis.py")
     st.write('')
     st.write('')

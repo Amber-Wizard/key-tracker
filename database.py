@@ -3,6 +3,7 @@ import pandas as pd
 import urllib.error
 import pymongo
 from bson.objectid import ObjectId
+import time
 
 import dok_api
 
@@ -169,23 +170,22 @@ def update_dok_data(deck_id):
 def get_user_decks(username):
     user_games = get_user_games(username)
     if user_games is not None and len(user_games) > 1:
-        games_counts = pd.Series([item[0] for item in user_games['Deck Link']]).value_counts()
+        games_counts = pd.Series([item[0] for item in user_games['Deck']]).value_counts()
         user_decks = games_counts.reset_index()
-        user_decks.columns = ['Deck Link', 'Games']
-        user_decks['Deck'] = None
-        user_decks['SAS'] = None
-        user_decks['Set'] = None
-        user_decks['ELO'] = None
-        user_decks['Share ID'] = None
-        for idx, row in user_decks.iterrows():
-            deck_id = row['Deck Link'].split('/')[-1]
-            dok_data = get_dok_cache_deck_id(deck_id)
-            user_decks.at[idx, 'Deck'] = dok_data['Deck']
-            user_decks.at[idx, 'SAS'] = dok_data['Data']['deck']['sasRating']
-            user_decks.at[idx, 'Set'] = set_conversion_dict[dok_data['Data']['deck']['expansion']]
-            elo_data = get_elo(username, dok_data['Deck'])
-            user_decks.at[idx, 'ELO'] = elo_data['score']
-            user_decks.at[idx, 'Share ID'] = elo_data['_id']
+        user_decks.columns = ['Deck', 'Games']
+        deck_link_mapping = {row['Deck'][0]: row['Deck Link'][0] for _, row in user_games.iterrows()}
+        user_decks['Deck Link'] = user_decks['Deck'].map(deck_link_mapping)
+        # user_decks['Deck'] = None
+        # user_decks['SAS'] = None
+        # user_decks['Set'] = None
+        # for idx, row in user_decks.iterrows():
+            # deck_id = row['Deck Link'].split('/')[-1]
+            # dok_data = get_dok_cache_deck_id(deck_id)
+            # user_decks.at[idx, 'Deck'] = dok_data['Deck']
+            # user_decks.at[idx, 'SAS'] = dok_data['Data']['deck']['sasRating']
+            # user_decks.at[idx, 'Set'] = set_conversion_dict[dok_data['Data']['deck']['expansion']]
+            # elo_data = get_elo(username, dok_data['Deck'])
+
         wins = []
         losses = []
         wl = []
@@ -203,7 +203,7 @@ def get_user_decks(username):
         user_decks['Losses'] = losses
         user_decks['Win-Loss'] = wl
         user_decks['Winrate'] = winrates
-        user_decks['Deck Link'] = user_decks['Deck'].apply(lambda deck: user_games.loc[user_games['Deck'].apply(lambda x: x[0]) == deck, 'Deck Link'].apply(lambda x: x[0]).values[0])
+        # user_decks['Deck Link'] = user_decks['Deck'].apply(lambda deck: user_games.loc[user_games['Deck'].apply(lambda x: x[0]) == deck, 'Deck Link'].apply(lambda x: x[0]).values[0])
         user_decks['Deck'] = user_decks['Deck'].apply(lambda x: [x])
         return user_decks
     else:
