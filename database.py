@@ -168,43 +168,46 @@ def update_dok_data(deck_id):
 
 def get_user_decks(username):
     user_games = get_user_games(username)
-    games_counts = pd.Series([item[0] for item in user_games['Deck Link']]).value_counts()
-    user_decks = games_counts.reset_index()
-    user_decks.columns = ['Deck Link', 'Games']
-    user_decks['Deck'] = None
-    user_decks['SAS'] = None
-    user_decks['Set'] = None
-    user_decks['ELO'] = None
-    user_decks['Share ID'] = None
-    for idx, row in user_decks.iterrows():
-        deck_id = row['Deck Link'].split('/')[-1]
-        dok_data = get_dok_cache_deck_id(deck_id)
-        user_decks.at[idx, 'Deck'] = dok_data['Deck']
-        user_decks.at[idx, 'SAS'] = dok_data['Data']['deck']['sasRating']
-        user_decks.at[idx, 'Set'] = set_conversion_dict[dok_data['Data']['deck']['expansion']]
-        elo_data = get_elo(username, dok_data['Deck'])
-        user_decks.at[idx, 'ELO'] = elo_data['score']
-        user_decks.at[idx, 'Share ID'] = elo_data['_id']
-    wins = []
-    losses = []
-    wl = []
-    winrates = []
-    for idx, row in user_decks.iterrows():
-        deck_games = user_games[(user_games['Deck'].apply(lambda x: x[0]) == row['Deck']) & (user_games['Player'].apply(lambda x: x[0]) == username)]
-        deck_wins = len(deck_games[deck_games['Winner'].apply(lambda x: x[0]) == username])
-        deck_losses = len(deck_games) - deck_wins
-        winrate = round(100 * deck_wins / len(deck_games))
-        wins.append(deck_wins)
-        losses.append(deck_losses)
-        wl.append(f"{deck_wins}-{deck_losses}")
-        winrates.append(winrate)
-    user_decks['Wins'] = wins
-    user_decks['Losses'] = losses
-    user_decks['Win-Loss'] = wl
-    user_decks['Winrate'] = winrates
-    user_decks['Deck Link'] = user_decks['Deck'].apply(lambda deck: user_games.loc[user_games['Deck'].apply(lambda x: x[0]) == deck, 'Deck Link'].apply(lambda x: x[0]).values[0])
-    user_decks['Deck'] = user_decks['Deck'].apply(lambda x: [x])
-    return user_decks
+    if len(user_games) > 1:
+        games_counts = pd.Series([item[0] for item in user_games['Deck Link']]).value_counts()
+        user_decks = games_counts.reset_index()
+        user_decks.columns = ['Deck Link', 'Games']
+        user_decks['Deck'] = None
+        user_decks['SAS'] = None
+        user_decks['Set'] = None
+        user_decks['ELO'] = None
+        user_decks['Share ID'] = None
+        for idx, row in user_decks.iterrows():
+            deck_id = row['Deck Link'].split('/')[-1]
+            dok_data = get_dok_cache_deck_id(deck_id)
+            user_decks.at[idx, 'Deck'] = dok_data['Deck']
+            user_decks.at[idx, 'SAS'] = dok_data['Data']['deck']['sasRating']
+            user_decks.at[idx, 'Set'] = set_conversion_dict[dok_data['Data']['deck']['expansion']]
+            elo_data = get_elo(username, dok_data['Deck'])
+            user_decks.at[idx, 'ELO'] = elo_data['score']
+            user_decks.at[idx, 'Share ID'] = elo_data['_id']
+        wins = []
+        losses = []
+        wl = []
+        winrates = []
+        for idx, row in user_decks.iterrows():
+            deck_games = user_games[(user_games['Deck'].apply(lambda x: x[0]) == row['Deck']) & (user_games['Player'].apply(lambda x: x[0]) == username)]
+            deck_wins = len(deck_games[deck_games['Winner'].apply(lambda x: x[0]) == username])
+            deck_losses = len(deck_games) - deck_wins
+            winrate = round(100 * deck_wins / len(deck_games))
+            wins.append(deck_wins)
+            losses.append(deck_losses)
+            wl.append(f"{deck_wins}-{deck_losses}")
+            winrates.append(winrate)
+        user_decks['Wins'] = wins
+        user_decks['Losses'] = losses
+        user_decks['Win-Loss'] = wl
+        user_decks['Winrate'] = winrates
+        user_decks['Deck Link'] = user_decks['Deck'].apply(lambda deck: user_games.loc[user_games['Deck'].apply(lambda x: x[0]) == deck, 'Deck Link'].apply(lambda x: x[0]).values[0])
+        user_decks['Deck'] = user_decks['Deck'].apply(lambda x: [x])
+        return user_decks
+    else:
+        return None
 
 
 def update_elo(player, deck, score):
