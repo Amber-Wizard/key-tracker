@@ -168,7 +168,7 @@ def update_dok_data(deck_id):
 
 def get_user_decks(username):
     user_games = get_user_games(username)
-    if len(user_games) > 1:
+    if user_games is not None and len(user_games) > 1:
         games_counts = pd.Series([item[0] for item in user_games['Deck Link']]).value_counts()
         user_decks = games_counts.reset_index()
         user_decks.columns = ['Deck Link', 'Games']
