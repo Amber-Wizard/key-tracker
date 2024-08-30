@@ -123,7 +123,7 @@ if 'deck_selection' in st.session_state:
     winrate = st.session_state.deck_selection["Winrate"].iloc[0]
 
 if 'share_id' in st.session_state and 'elo_data' not in st.session_state:
-    st.session_state.elo_data = database.get_elo_by_id(share_id)
+    st.session_state.elo_data = database.get_elo_by_id(st.session_state.share_id)
     st.session_state.deck = st.session_state.elo_data['deck']
     st.session_state.pilot = st.session_state.elo_data['player']
     st.session_state.score = st.session_state.elo_data['score']
