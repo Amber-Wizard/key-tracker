@@ -181,7 +181,7 @@ else:
     if 'name' in st.session_state and st.session_state.name == pilot:
         pass
     else:
-        c1.markdown(f'<b class="pilot-font">{deck}</b>', unsafe_allow_html=True)
+        c1.markdown(f'<b class="pilot-font">{pilot}</b>', unsafe_allow_html=True)
     home = c3.button("🏠")
     if home:
         st.switch_page("Home.py")
