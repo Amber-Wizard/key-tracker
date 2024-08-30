@@ -178,7 +178,6 @@ else:
     deck = st.session_state.deck
     score = st.session_state.score
     c1, c2, c3, c4 = st.columns([22, 1, 1, 1])
-    st.write(f"{st.session_state.name}/{pilot}")
     if 'name' in st.session_state and st.session_state.name == pilot:
         pass
     else:
