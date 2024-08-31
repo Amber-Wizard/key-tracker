@@ -112,6 +112,8 @@ score = None
 
 if 'shareID' in st.query_params:
     st.session_state.share_id = st.query_params.get_all(key='shareID')[0]
+    if 'deck_selection' in st.session_state:
+        del st.session_state['deck_selection']
     if 'elo_data' in st.session_state:
         del st.session_state['elo_data']
     if 'deck_games' in st.session_state:
@@ -120,7 +122,8 @@ if 'shareID' in st.query_params:
         del st.session_state['deck_data']
 
 if 'deck_selection' in st.session_state:
-    if 'share_id' not in st.session_state:
+    if 'elo_data' not in st.session_state:
+        st.session_state.elo_data = database.get_elo(st.session_state.name, st.session_state.deck)
         st.session_state.deck = st.session_state.elo_data['deck']
         st.session_state.pilot = st.session_state.elo_data['player']
         st.session_state.score = st.session_state.elo_data['score']
