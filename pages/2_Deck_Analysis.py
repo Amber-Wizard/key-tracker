@@ -112,6 +112,12 @@ score = None
 
 if 'shareID' in st.query_params:
     st.session_state.share_id = st.query_params.get_all(key='shareID')[0]
+    if 'elo_data' in st.session_state:
+        del st.session_state['elo_data']
+    if 'deck_games' in st.session_state:
+        del st.session_state['deck_games']
+    if 'deck_data' in st.session_state:
+        del st.session_state['deck_data']
 
 if 'deck_selection' in st.session_state:
     if 'share_id' not in st.session_state:
