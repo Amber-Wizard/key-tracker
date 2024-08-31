@@ -124,9 +124,9 @@ if 'shareID' in st.query_params:
 if 'deck_selection' in st.session_state:
     if 'elo_data' not in st.session_state:
         st.session_state.elo_data = database.get_elo(st.session_state.name, st.session_state.deck)
-        st.session_state.deck = st.session_state.elo_data['deck']
-        st.session_state.pilot = st.session_state.elo_data['player']
-        st.session_state.score = st.session_state.elo_data['score']
+    st.session_state.deck = st.session_state.elo_data['deck']
+    st.session_state.pilot = st.session_state.elo_data['player']
+    st.session_state.score = st.session_state.elo_data['score']
     share_id = st.session_state.elo_data['_id']
     st.query_params['shareID'] = share_id
     st.session_state.share_id = share_id
