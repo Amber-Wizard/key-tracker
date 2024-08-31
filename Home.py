@@ -182,6 +182,8 @@ else:
                     del st.session_state['deck_games']
                 if 'deck_data' in st.session_state:
                     del st.session_state['deck_data']
+                if 'share_id' in st.session_state:
+                    del st.session_state['share_id']
 
                 st.session_state.deck_selection = st.session_state.deck_log.iloc[selected_deck]
                 deck = st.session_state.deck_selection['Deck'].iat[0][0]
