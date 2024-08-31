@@ -214,7 +214,7 @@ else:
     st.write(' ')
     sets = ['CotA', 'AoA', 'WC', 'MM', 'DT', 'WoE', 'GR', 'VM23', 'VM24']
     set_winrate_df = st.session_state.set_winrate_df
-    cols = st.columns(len(set_winrate_df))
+    cols = st.columns(max(len(set_winrate_df), 4))
     col_num = 0
     for s in sets:
         if s in set_winrate_df['Opponent Set'].values:
