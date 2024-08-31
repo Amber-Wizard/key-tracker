@@ -188,7 +188,8 @@ def calculate_survival_rate(player_data):
         total_survives = sum(survives)
         total_deaths = sum(deaths)
         if total_survives + total_deaths > 0:
-            survival_rate = round(100 * total_survives / (total_survives + total_deaths))
+            survival_rate = min(100, round(100 * total_survives / (total_survives + total_deaths)))
+            survival_rate = max(0, survival_rate)
         else:
             survival_rate = None
 
