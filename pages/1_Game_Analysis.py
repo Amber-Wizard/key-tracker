@@ -315,7 +315,7 @@ else:
         else:
             m_start_index = None
 
-        with st.expander(fr"$\texttt{{\large {turn_string}}}$", expanded=st.session_state.expand_all):
+        with st.expander(fr"$\texttt{{\large {turn_string.replace('_', '')}}}$", expanded=st.session_state.expand_all):
             c1, c2, c3 = st.columns([1, 1, 2])
             keys = game_log[p]['keys'][t]
             new_keys = max(keys - game_log[p]['keys'][t-1], 0)
