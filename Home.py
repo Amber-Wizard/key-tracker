@@ -25,6 +25,10 @@ st.markdown("""
     font-size: 32px !important;
     color: #424242 !important;
 }
+.dark-font {
+    font-size: 12px !important;
+    color: #424242 !important;
+}
 """, unsafe_allow_html=True)
 
 if 'login_type' not in st.session_state:
@@ -42,7 +46,7 @@ else:
 
 c1, c2 = st.columns([9, 1])
 c1.title(f":blue[{display_name}'s] KeyTracker")
-versions = ["0.4.1", "0.5.0"]
+versions = ["0.4.1", "0.5.0", "0.5.1"]
 
 changes = [
     [
@@ -64,6 +68,9 @@ changes = [
         'Added Creature Survival Rate',
         'Added Amber Defense Score',
         'Added ELO'
+    ],
+    [
+        'Fixed Turn Logs'
     ]
 ]
 
@@ -71,6 +78,14 @@ with st.expander(fr"$\texttt{{\color{{gray}}\Large v{versions[-1]}}}$"):
     st.divider()
     for c in changes[-1]:
         st.write(f"-{c}")
+    for i in range(len(versions)-1):
+        st.divider()
+        v = versions[-2-i]
+        st.write(fr"$\texttt{{\color{{gray}}\Large v{v}}}$")
+        v_changes = changes[-2-i]
+        for c in v_changes:
+            st.write(f"-{c}")
+
 st.divider()
 
 if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:

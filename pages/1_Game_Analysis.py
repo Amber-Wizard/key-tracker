@@ -265,15 +265,12 @@ else:
     link_base = "https://keyforge-card-images.s3-us-west-2.amazonaws.com/card-imgs/"
 
     game_log = st.session_state.game_data['Game Log'][0]
-    if ["Turn 1 -  ", player] in st.session_state.game_data['Player Frags'][0]:
-        player_messages = st.session_state.game_data['Player Frags'][0]
-        opponent_messages = st.session_state.game_data['Opponent Frags'][0]
-    elif ["Turn 1 -  ", opponent] in st.session_state.game_data['Player Frags'][0]:
+    if ["Key ", " phase -  ", opponent] in st.session_state.game_data['Player Frags'][0]:
         opponent_messages = st.session_state.game_data['Player Frags'][0]
         player_messages = st.session_state.game_data['Opponent Frags'][0]
     else:
-        player_messages = None
-        opponent_messages = None
+        player_messages = st.session_state.game_data['Player Frags'][0]
+        opponent_messages = st.session_state.game_data['Opponent Frags'][0]
 
     card_name_list = dok_api.card_df['cardTitle'].tolist()
 
@@ -358,7 +355,7 @@ else:
             else:
                 new_cards_discarded = subtract_dicts(cards_discarded[t - 1], cards_discarded_turn)
 
-            remove_chars = "æ””“!,.-…’'éĕŏăŭĭ\""
+            remove_chars = "æ””“*!,.-…’'éĕŏăŭĭ\""
 
             if p == player:
                 st.subheader("Player Hand")
