@@ -46,7 +46,7 @@ else:
 
 c1, c2 = st.columns([9, 1])
 c1.title(f":blue[{display_name}'s] KeyTracker")
-versions = ["0.4.1", "0.5.0", "0.5.1"]
+versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0"]
 
 changes = [
     [
@@ -71,6 +71,16 @@ changes = [
     ],
     [
         'Fixed Turn Logs'
+    ],
+    [
+        'Added Tide Tracker',
+        'Added Token Tracker',
+        'Added Sealed Compatibility',
+        'Added Deck Error Fix',
+        'Improved Prediction Accuracy',
+        'Improved Reap Rate Accuracy',
+        'Improved Card Info Accuracy (Deck Analysis)',
+        'Adjusted Amber Sources & House Calls (Deck Analysis)',
     ]
 ]
 
@@ -139,7 +149,7 @@ else:
     st.subheader("My Games")
     with st.expander("Select Game"):
         if st.session_state.game_log is not None and not st.session_state.game_log.empty:
-            game_choice = st.dataframe(st.session_state.game_log[['Date', 'Deck', 'Opponent Deck', 'Opponent', 'Winner']], on_select='rerun', selection_mode='single-row', hide_index=True)
+            game_choice = st.dataframe(st.session_state.game_log[['Date', 'Deck', 'Opponent Deck', 'Opponent', 'Winner', 'Format']], on_select='rerun', selection_mode='single-row', hide_index=True)
         else:
             game_choice = None
             st.write("No games played.")

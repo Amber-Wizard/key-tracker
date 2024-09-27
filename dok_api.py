@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 
 headers = {
-    "Api-Key": st.secrets['dok']['api_key']
+    "Api-Key": "0287d9c7-e0b6-4689-867c-f7223e520077" #st.secrets['dok']['api_key']
 }
 
 

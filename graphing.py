@@ -41,13 +41,14 @@ def get_turn_played(player_data, card_name, analysis_type='replay'):
         return player_data['turn_played'][-1].get(card_name, 0)
 
 
-def calculate_ttw(player_tav, player_data):
+def calculate_ttw(player_tav, player_data, opponent_amber_defense):
     ttw = []
     amber_deltas = []
     reap_rates = []
     for i in range(len(player_tav)):
         amber_remaining = 18 - player_tav[i]
-        avg_creatures = sum(player_data['creatures'][:i+1]) / (i+1)
+        keys = player_data['keys'][i]
+        avg_creatures = sum(player_data['creatures'][:i]) / (i+1)
         if avg_creatures > 0:
             reap_rate = player_data['amber_reaped'][i] / (((i+1) * avg_creatures) / 2)
         else:
@@ -55,10 +56,10 @@ def calculate_ttw(player_tav, player_data):
         amber_delta = (player_data['amber_icons'][i] + player_data['amber_effect'][i] + player_data['steal'][i]) / ((i+1) / 2)
         divisor = player_data['creatures'][i] * reap_rate + amber_delta
         if divisor > 0:
-            turns_remaining = amber_remaining / (player_data['creatures'][i] * reap_rate + amber_delta)
+            turns_remaining = amber_remaining / ((player_data['creatures'][i] * reap_rate + amber_delta) * (1 - opponent_amber_defense / 100))
         else:
             turns_remaining = 25
-        ttw.append(min(turns_remaining, 25))
+        ttw.append(max(min(turns_remaining, 25), 3-keys))
         reap_rates.append(reap_rate)
         amber_deltas.append(amber_delta)
 
@@ -124,32 +125,38 @@ def calculate_ex_amber(player_data, opponent_data, first_player, opponent_name, 
     return player_exa, op_exa, 1-op_def_adj, 1-p_def_adj
 
 
-def analyze_deck(username, deck_data):
-    log = deck_data
+def analyze_deck(username, log, games):
     player_data = log[username]
     opponent_data = log['opponent']
 
-    deck_analysis_data = create_deck_analysis_graphs(player_data, username, opponent_data, 'opponent')
+    deck_analysis_data = create_deck_analysis_graphs(player_data, username, opponent_data, 'opponent', games)
 
     return deck_analysis_data
 
 
-def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_name):
+def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_name, games):
     player_tav, opponent_tav, p_amber_gained, op_amber_gained, p_amber_defense, op_amber_defense = calculate_tav(player_data, opponent_data)
-    player_ttw, player_delta, player_reap_rate = calculate_ttw(player_tav, player_data)
-    opponent_ttw, opponent_delta, opponent_reap_rate = calculate_ttw(opponent_tav, opponent_data)
-    values = [player_data['steal'][-1], player_data['amber_reaped'][-1], player_data['amber_icons'][-1], player_data['amber_effect'][-1]]
+    player_ttw, player_delta, player_reap_rate = calculate_ttw(player_tav, player_data, op_amber_defense[-1])
+    opponent_ttw, opponent_delta, opponent_reap_rate = calculate_ttw(opponent_tav, opponent_data, p_amber_defense[-1])
+    values = [player_data['total_steal'][-1], player_data['total_amber_reaped'][-1], player_data['total_amber_icons'][-1], player_data['total_amber_effect'][-1]]
     player_amber_sources = amber_sources(values, username, 'replay')
-    values = [opponent_data['steal'][-1], opponent_data['amber_reaped'][-1], opponent_data['amber_icons'][-1], opponent_data['amber_effect'][-1]]
+    values = [opponent_data['total_steal'][-1], opponent_data['total_amber_reaped'][-1], opponent_data['total_amber_icons'][-1], opponent_data['total_amber_effect'][-1]]
     opponent_amber_sources = amber_sources(values, opponent_name, 'replay')
-    player_house_calls = house_calls(player_data, username, 1, 'replay')
-    opponent_house_calls = house_calls(opponent_data, opponent_name, 1, 'replay')
+    player_house_calls = house_calls(player_data, username, games, 'replay')
+    opponent_house_calls = house_calls(opponent_data, opponent_name, games, 'replay')
     player_card_data = get_card_information(player_data, analysis_type='Deck')
     opponent_card_data = get_card_information(opponent_data, analysis_type='Deck')
     player_survival_rate = calculate_survival_rate(player_data)
     opponent_survival_rate = calculate_survival_rate(opponent_data)
     game_dataframe = pd.DataFrame({'Player Amber': player_tav, 'Opponent Amber': opponent_tav, 'Player Amber Defense': p_amber_defense, 'Opponent Amber Defense': op_amber_defense, 'Player Cards': player_data['cards_played'], 'Opponent Cards': opponent_data['cards_played'], 'Player Creatures': player_data['creatures'], 'Opponent Creatures': opponent_data['creatures'], 'Player Survival Rate': player_survival_rate, 'Opponent Survival Rate': opponent_survival_rate, 'Player Prediction': player_ttw, 'Opponent Prediction': opponent_ttw, 'Player Delta': player_delta, 'Opponent Delta': opponent_delta, 'Player Reap Rate': player_reap_rate, 'Opponent Reap Rate': opponent_reap_rate})
     return game_dataframe, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, player_card_data, opponent_card_data, player_data['turns']
+
+
+def calculate_tide(player_data):
+    if 'tide_value' in player_data:
+        return player_data['tide_value']
+    else:
+        return None
 
 
 def calculate_survival_rate(player_data):
@@ -204,13 +211,8 @@ def analyze_game(username, game_data):
     player_data = log[username]
     first_player = game_data['Starting Player'][0]
 
-    if list(log.keys())[0] == username:
-        opponent_name = list(log.keys())[1]
-        opponent_data = log[opponent_name]
-    else:
-        opponent_name = list(log.keys())[0]
-        opponent_data = log[opponent_name]
-
+    opponent_name = [n for n in log.keys() if n != username and n != 'player_hand'][0]
+    opponent_data = log[opponent_name]
     game_analysis_data = create_game_analysis_graphs(player_data, username, opponent_data, opponent_name, first_player)
 
     return game_analysis_data
@@ -218,8 +220,8 @@ def analyze_game(username, game_data):
 
 def create_game_analysis_graphs(player_data, username, opponent_data, opponent_name, first_player):
     player_tav, opponent_tav, p_amber_gained, op_amber_gained, p_amber_defense, op_amber_defense = calculate_tav(player_data, opponent_data)
-    player_ttw, player_delta, player_reap_rate = calculate_ttw(player_tav, player_data)
-    opponent_ttw, opponent_delta, opponent_reap_rate = calculate_ttw(opponent_tav, opponent_data)
+    player_ttw, player_delta, player_reap_rate = calculate_ttw(player_tav, player_data, op_amber_defense[-1])
+    opponent_ttw, opponent_delta, opponent_reap_rate = calculate_ttw(opponent_tav, opponent_data, p_amber_defense[-1])
     values = [player_data['steal'][-1], player_data['amber_reaped'][-1], player_data['amber_icons'][-1], player_data['amber_effect'][-1]]
     player_amber_sources = amber_sources(values, username, 'replay')
     values = [opponent_data['steal'][-1], opponent_data['amber_reaped'][-1], opponent_data['amber_icons'][-1], opponent_data['amber_effect'][-1]]
@@ -230,7 +232,17 @@ def create_game_analysis_graphs(player_data, username, opponent_data, opponent_n
     opponent_card_data = get_card_information(opponent_data)
     player_survival_rate = calculate_survival_rate(player_data)
     opponent_survival_rate = calculate_survival_rate(opponent_data)
+    tide = calculate_tide(player_data)
     game_dataframe = pd.DataFrame({'Player Amber': player_tav, 'Opponent Amber': opponent_tav, 'Player Amber Gained': p_amber_gained, 'Opponent Amber Gained': op_amber_gained, 'Player Amber Defense': p_amber_defense, 'Opponent Amber Defense': op_amber_defense, 'Player Cards': player_data['cards_played'], 'Opponent Cards': opponent_data['cards_played'], 'Player Creatures': player_data['creatures'], 'Opponent Creatures': opponent_data['creatures'], 'Player Survival Rate': player_survival_rate, 'Opponent Survival Rate': opponent_survival_rate, 'Player Prediction': player_ttw, 'Opponent Prediction': opponent_ttw, 'Player Delta': player_delta, 'Opponent Delta': opponent_delta, 'Player Reap Rate': player_reap_rate, 'Opponent Reap Rate': opponent_reap_rate})
+    print(tide)
+    if tide:
+        game_dataframe['Tide'] = tide
+    if 'tokens_created' in player_data:
+        if len(player_data['tokens_created']) == len(game_dataframe):
+            game_dataframe['Player Tokens'] = player_data['tokens_created']
+    if 'tokens_created' in opponent_data:
+        if len(opponent_data['tokens_created']) == len(game_dataframe):
+            game_dataframe['Opponent Tokens'] = opponent_data['tokens_created']
     return game_dataframe, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, player_card_data, opponent_card_data
 
 
@@ -338,7 +350,7 @@ def house_calls(data, name, games, save):
         else:
             counts[call] = 1
     for h in counts:
-        counts[h] = counts[h] / games
+        counts[h] = round(counts[h] / games, 1)
     colors = [f'rgb({house_colors[h.strip()]})' for h in list(counts.keys())]
     labels = [h.strip().capitalize() for h in list(counts.keys())]
     values = list(counts.values())
@@ -357,13 +369,20 @@ def house_calls(data, name, games, save):
 def get_card_information(player_data, analysis_type='Game'):
     # link_base = "https://keyforge-card-images.s3-us-west-2.amazonaws.com/card-imgs/"
     # remove_chars = "æ””“!,.-…’'éĕŏăŭĭ\""
-    df = pd.DataFrame(columns=["Card", "Turn", "Played", "Discarded", "Discarded %", "Amber", "Amber %", "R/I/S/E"])
-    amber_gained = player_data['amber_icons'][-1] + player_data['amber_effect'][-1] + player_data['amber_reaped'][-1] + player_data['steal'][-1]
-    card_names = list(set(player_data['individual_cards_played'][-1].keys()).union(player_data['individual_cards_discarded'][-1].keys()))
+    if analysis_type == 'Game':
+        card_played_type = 'individual_cards_played'
+    else:
+        card_played_type = 'individual_cards_played_total'
+    df = pd.DataFrame(columns=["Card", "Turn", "Played", "Discarded", "Discarded %", "Amber", "Amber %", "Reaps", "Icons", "Steal", "Effects"])
+    if analysis_type == 'Game':
+        amber_gained = player_data['amber_icons'][-1] + player_data['amber_effect'][-1] + player_data['amber_reaped'][-1] + player_data['steal'][-1]
+    else:
+        amber_gained = player_data['total_amber_icons'][-1] + player_data['total_amber_effect'][-1] + player_data['total_amber_reaped'][-1] + player_data['total_steal'][-1]
+    card_names = list(set(player_data[card_played_type][-1].keys()).union(player_data['individual_cards_discarded'][-1].keys()).union(player_data['individual_amber_icons'][-1].keys()).union(player_data['individual_amber_effect'][-1].keys()).union(player_data['individual_amber_reaped'][-1].keys()).union(player_data['individual_steal'][-1].keys()))
     sorted_card_names = sorted(card_names, key=lambda x: get_turn_played(player_data, x), reverse=False)
-    sorted_card_names = sorted(sorted_card_names, key=lambda x: player_data['individual_cards_played'][-1].get(x, 0), reverse=True)
+    sorted_card_names = sorted(sorted_card_names, key=lambda x: player_data[card_played_type][-1].get(x, 0), reverse=True)
     for card in sorted_card_names:
-        played = player_data['individual_cards_played'][-1].get(card, 0)
+        played = player_data[card_played_type][-1].get(card, 0)
         discarded = player_data['individual_cards_discarded'][-1].get(card, 0)
         if discarded + played > 0:
             discarded_pct = round(100 * discarded / (discarded + played))
@@ -379,7 +398,7 @@ def get_card_information(player_data, analysis_type='Game'):
         amber_reaped = player_data['individual_amber_reaped'][-1].get(card, 0)
         amber_effect = player_data['individual_amber_effect'][-1].get(card, 0)
         amber_steal = player_data['individual_steal'][-1].get(card, 0)
-        rise_string = f"{amber_reaped}/{amber_icons}/{amber_steal}/{amber_effect}"
+        # rise_string = f"{amber_reaped}/{amber_icons}/{amber_steal}/{amber_effect}"
         total_amber = round(amber_icons + amber_reaped + amber_effect + amber_steal, 1)
         if amber_gained > 0:
             amber_pct = round(100 * total_amber / amber_gained)
@@ -390,7 +409,7 @@ def get_card_information(player_data, analysis_type='Game'):
         # link_name = card.lower().translate(translation_table).replace(' ', '-')
         # image_link = f"{link_base}{link_name}.png"
 
-        new_row = [card, turn, played, discarded, discarded_pct, total_amber, amber_pct, rise_string]
+        new_row = [card, turn, played, discarded, discarded_pct, total_amber, amber_pct, amber_reaped, amber_icons, amber_steal, amber_effect]
         df.loc[len(df)] = new_row
     return df
 

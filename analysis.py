@@ -18,11 +18,16 @@ def analyze_deck(deck_name, pilot, graphs=True):
                               'cards_played': [],
                               'turn_played': [{}],
                               'individual_cards_played': [],
+                              'individual_cards_played_total': [{}],
                               'individual_cards_discarded': [{}],
                               'individual_amber_icons': [{}],
                               'individual_amber_effect': [{}],
                               'individual_amber_reaped': [{}],
                               'individual_steal': [{}],
+                              'total_amber_icons': [0],
+                              'total_amber_effect': [0],
+                              'total_amber_reaped': [0],
+                              'total_steal': [0],
                               'amber': [],
                               'keys': [],
                               'creatures': [],
@@ -35,11 +40,16 @@ def analyze_deck(deck_name, pilot, graphs=True):
                                    'cards_played': [],
                                    'turn_played': [{}],
                                    'individual_cards_played': [],
+                                   'individual_cards_played_total': [{}],
                                    'individual_cards_discarded': [{}],
                                    'individual_amber_icons': [{}],
                                    'individual_amber_effect': [{}],
                                    'individual_amber_reaped': [{}],
                                    'individual_steal': [{}],
+                                   'total_amber_icons': [0],
+                                   'total_amber_effect': [0],
+                                   'total_amber_reaped': [0],
+                                   'total_steal': [0],
                                    'amber': [],
                                    'keys': [],
                                    'creatures': [],
@@ -51,7 +61,7 @@ def analyze_deck(deck_name, pilot, graphs=True):
     for idx, row in deck_games.iterrows():
         game_data = row['Game Log'][0]
         names = list(game_data.keys())
-        opponent_name = [name for name in names if name != pilot][0]
+        opponent_name = [name for name in names if name != pilot and name != 'player_hand'][0]
         player_data = game_data[pilot]
         opponent_data = game_data[opponent_name]
         for player, p_data in zip([pilot, 'opponent'], [player_data, opponent_data]):
@@ -72,12 +82,21 @@ def analyze_deck(deck_name, pilot, graphs=True):
                         aggregate_data[player]['individual_cards_played'][j][card] = played
 
             aggregate_data[player]['house_calls'] += p_data['house_calls']
+            aggregate_data[player]['total_amber_icons'][-1] += p_data['amber_icons'][-1]
+            aggregate_data[player]['total_amber_effect'][-1] += p_data['amber_effect'][-1]
+            aggregate_data[player]['total_amber_reaped'][-1] += p_data['amber_reaped'][-1]
+            aggregate_data[player]['total_steal'][-1] += p_data['steal'][-1]
 
             if player == 'opponent':
                 player_name = row['Opponent']
             else:
                 player_name = pilot
             for card, played in p_data['individual_cards_played'][-1].items():
+                cards_played_dict = aggregate_data[player]['individual_cards_played_total'][-1]
+                if card in cards_played_dict:
+                    cards_played_dict[card] += played
+                else:
+                    cards_played_dict[card] = played
 
                 turn_played_dict = aggregate_data[player]['turn_played'][-1]
 
@@ -86,6 +105,7 @@ def analyze_deck(deck_name, pilot, graphs=True):
                     turn_played_dict[card] += turn_played
                 else:
                     turn_played_dict[card] = turn_played
+
             for card, discarded in p_data['individual_cards_discarded'][-1].items():
                 cards_discarded_dict = aggregate_data[player]['individual_cards_discarded'][-1]
                 if card in cards_discarded_dict:
@@ -129,9 +149,11 @@ def analyze_deck(deck_name, pilot, graphs=True):
             p_agg[stat] = p_agg[stat][:first_one_index]  # trim stat to first 1
             for i, t in enumerate(p_agg['turns']):
                 p_agg[stat][i] = round(p_agg[stat][i] / t, 2)  # divide stat by turns
-        for stat in ['turn_played', 'individual_cards_discarded', 'individual_amber_icons', 'individual_amber_effect', 'individual_amber_reaped', 'individual_steal']:
+        for stat in ['turn_played', 'individual_cards_played_total', 'individual_cards_discarded', 'individual_amber_icons', 'individual_amber_effect', 'individual_amber_reaped', 'individual_steal']:
             for card in p_agg[stat][-1]:
                 p_agg[stat][-1][card] = round(p_agg[stat][-1][card]/len(deck_games), 1)  # divide stat by games
+        for stat in ['total_amber_icons', 'total_amber_effect', 'total_amber_reaped', 'total_steal']:
+            p_agg[stat][-1] = round(p_agg[stat][-1] / len(deck_games), 1)
         p_agg['individual_cards_played'] = p_agg['individual_cards_played'][:first_one_index]
         for i, card_dict in enumerate(p_agg['individual_cards_played']):
             for card in card_dict:
@@ -152,20 +174,11 @@ def create_deck_analysis_options():
             wins = len(game_log.loc[(game_log['Deck'] == deck) & (game_log['Winner'] == USERNAME)])
             winrate = round(100 * wins / games)
             agg_data = analyze_deck(deck, graphs=False)
-            cpt = round(games * max(agg_data[0][USERNAME]['cards_played']) / len(agg_data[0][USERNAME]['house_calls']),
-                        1)
-            op_cpt = round(
-                games * max(agg_data[0]['opponent']['cards_played']) / len(agg_data[0][USERNAME]['house_calls']), 1)
-            apt = round(games * (agg_data[0][USERNAME]['amber_icons'][-1] + agg_data[0][USERNAME]['amber_reaped'][-1] +
-                                 agg_data[0][USERNAME]['amber_effect'][-1] + agg_data[0][USERNAME]['steal'][-1]) / len(
-                agg_data[0][USERNAME]['house_calls']), 1)
-            op_apt = round(games * (
-                    agg_data[0]['opponent']['amber_icons'][-1] + agg_data[0]['opponent']['amber_reaped'][-1] +
-                    agg_data[0]['opponent']['amber_effect'][-1] + agg_data[0]['opponent']['steal'][-1]) / len(
-                agg_data[0][USERNAME]['house_calls']), 1)
-            p_exa, op_exa, p_defense, op_defense = graphing.calculate_ex_amber(agg_data[0][USERNAME],
-                                                                               agg_data[0]['opponent'], USERNAME,
-                                                                               'Opponent', games)
+            cpt = round(games * max(agg_data[0][USERNAME]['cards_played']) / len(agg_data[0][USERNAME]['house_calls']), 1)
+            op_cpt = round(games * max(agg_data[0]['opponent']['cards_played']) / len(agg_data[0][USERNAME]['house_calls']), 1)
+            apt = round(games * (agg_data[0][USERNAME]['amber_icons'][-1] + agg_data[0][USERNAME]['amber_reaped'][-1] + agg_data[0][USERNAME]['amber_effect'][-1] + agg_data[0][USERNAME]['steal'][-1]) / len( agg_data[0][USERNAME]['house_calls']), 1)
+            op_apt = round(games * (agg_data[0]['opponent']['amber_icons'][-1] + agg_data[0]['opponent']['amber_reaped'][-1] + agg_data[0]['opponent']['amber_effect'][-1] + agg_data[0]['opponent']['steal'][-1]) / len( agg_data[0][USERNAME]['house_calls']), 1)
+            p_exa, op_exa, p_defense, op_defense = graphing.calculate_ex_amber(agg_data[0][USERNAME], agg_data[0]['opponent'], USERNAME, 'Opponent', games)
             speed = round(18 / (apt * (1 - op_defense)))
             op_speed = round(18 / (op_apt * (1 - p_defense)))
             p_defense = round(p_defense * 100)

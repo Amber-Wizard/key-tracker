@@ -123,7 +123,8 @@ if 'shareID' in st.query_params:
 
 if 'deck_selection' in st.session_state:
     if 'elo_data' not in st.session_state:
-        st.session_state.elo_data = database.get_elo(st.session_state.name, st.session_state.deck)
+        with st.spinner('Getting ELO...'):
+            st.session_state.elo_data = database.get_elo(st.session_state.name, st.session_state.deck)
     st.session_state.deck = st.session_state.elo_data['deck']
     st.session_state.pilot = st.session_state.elo_data['player']
     st.session_state.score = st.session_state.elo_data['score']
@@ -136,7 +137,8 @@ if 'deck_selection' in st.session_state:
     winrate = st.session_state.deck_selection["Winrate"].iloc[0]
 
 if 'share_id' in st.session_state and 'elo_data' not in st.session_state:
-    st.session_state.elo_data = database.get_elo_by_id(st.session_state.share_id)
+    with st.spinner('Getting ELO...'):
+        st.session_state.elo_data = database.get_elo_by_id(st.session_state.share_id)
     st.session_state.deck = st.session_state.elo_data['deck']
     st.session_state.pilot = st.session_state.elo_data['player']
     st.session_state.score = st.session_state.elo_data['score']
@@ -144,27 +146,27 @@ if 'share_id' in st.session_state and 'elo_data' not in st.session_state:
 if 'deck_games' not in st.session_state:
     pilot = st.session_state.pilot
     deck = st.session_state.deck
-    deck_games = database.get_deck_games(pilot, deck, trim_lists=True)
-    st.session_state.deck_games = deck_games
-    deck_games['Dok Data'] = None
-    deck_games['Opponent Set'] = None
-    for idx, row in deck_games.iterrows():
-        dok_data = database.get_dok_cache_deck_id(row['Opponent Deck Link'].split('/')[-1])
-        deck_games.at[idx, 'Dok Data'] = dok_data
-        deck_games.at[idx, 'Opponent Set'] = database.set_conversion_dict[dok_data['Data']['deck']['expansion']][0]
-    set_winrate_df = deck_games['Opponent Set'].value_counts().reset_index()
+    with st.spinner('Getting deck games...'):
+        deck_games = database.get_deck_games(pilot, deck, trim_lists=True)
+    with st.spinner('Processing games...'):
+        st.session_state.deck_games = deck_games
+        deck_games['Opponent Deck ID'] = deck_games['Opponent Deck Link'].str.split('/').str[-1]
 
-    set_winrate_df.columns = ['Opponent Set', 'Count']
-    set_winrate_df['Wins'] = None
-    for idx, row in set_winrate_df.iterrows():
-        opponent_set = row['Opponent Set']
-        count = ((deck_games['Opponent Set'] == opponent_set) & (deck_games['Winner'] == pilot)).sum()
-        set_winrate_df.at[idx, 'Wins'] = count
+        # Vectorized retrieval of 'Dok Data' and 'Opponent Set'
+        deck_games['Dok Data'] = deck_games['Opponent Deck ID'].apply(database.get_dok_cache_deck_id)
+        deck_games['Opponent Set'] = deck_games['Dok Data'].apply(lambda dok_data: database.set_conversion_dict[dok_data['Data']['deck']['expansion']][0])
 
-    set_winrate_df['Winrate'] = 100 * set_winrate_df['Wins'] / set_winrate_df['Count']
-    set_winrate_df['Winrate'] = pd.to_numeric(set_winrate_df['Winrate'], errors='coerce')
-    set_winrate_df['Winrate'] = set_winrate_df['Winrate'].round(0).astype(int)
-    st.session_state.set_winrate_df = set_winrate_df
+        # Calculate winrate by 'Opponent Set' in a vectorized way
+        set_winrate_df = deck_games.groupby('Opponent Set').size().reset_index(name='Count')
+
+        # Vectorized 'Wins' calculation
+        set_winrate_df['Wins'] = deck_games.groupby('Opponent Set').apply(lambda x: (x['Winner'] == pilot).sum()).reset_index(drop=True)
+
+        # Calculate winrate in a vectorized way
+        set_winrate_df['Winrate'] = (100 * set_winrate_df['Wins'] / set_winrate_df['Count']).round(0).astype(int)
+
+        # Save result to session state
+        st.session_state.set_winrate_df = set_winrate_df
 
 
 if 'deck_selection' not in st.session_state:
@@ -239,8 +241,8 @@ else:
     st.write(' ')
     st.write(' ')
     st.write(' ')
-
-    deck_df, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, player_card_data, opponent_card_data, turns = graphing.analyze_deck(pilot, st.session_state.deck_data)
+    with st.spinner('Analyzing games...'):
+        deck_df, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, player_card_data, opponent_card_data, turns = graphing.analyze_deck(pilot, st.session_state.deck_data, games)
 
     turn_df = pd.DataFrame(turns, columns=['Games'])
     st.subheader("Game Length")
