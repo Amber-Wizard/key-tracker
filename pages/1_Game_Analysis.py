@@ -119,10 +119,8 @@ else:
                     if len(deck_code) == 36 and all(deck_code[i] == '-' for i in [8, 13, 18, 23]):
                         with st.spinner("Getting deck data..."):
                             dok_data = database.get_dok_cache_deck_id(deck_code)
-                            st.write(dok_data)
-                            # st.write(dok_data['Deck'])
                             if database.update_game_decks(st.session_state.game_id, dok_data['Deck'], "https://decksofkeyforge.com/decks/"+dok_data['ID']):
-                                st.success(f"Deck Code: {deck_code}")
+                                st.success(f"Deck Updated: {dok_data['Deck']}")
                             else:
                                 st.error(f"Error Updating Deck Info")
                     else:
@@ -133,7 +131,22 @@ else:
     if st.session_state.game_data["Opponent Deck Link"][0]:
         c2.link_button("Deck Info", st.session_state.game_data["Opponent Deck Link"][0])
     else:
-        c2.button("Add Deck", key='add_op_deck')
+        if 'name' in st.session_state and st.session_state.name == st.session_state.game_data['Player'][0]:
+            with c2.popover("Add Deck"):
+                st.write("Paste Deck Link")
+                p_cols = st.columns([3, 1])
+                p_deck_link = p_cols[0].text_input("", label_visibility='collapsed')
+                if p_cols[1].button("➤", key='submit_op_deck'):
+                    deck_code = p_deck_link.split('/')[-1]
+                    if len(deck_code) == 36 and all(deck_code[i] == '-' for i in [8, 13, 18, 23]):
+                        with st.spinner("Getting deck data..."):
+                            dok_data = database.get_dok_cache_deck_id(deck_code)
+                            if database.update_game_decks(st.session_state.game_id, dok_data['Deck'], "https://decksofkeyforge.com/decks/"+dok_data['ID'], player=False):
+                                st.success(f"Deck Updated: {dok_data['Deck']}")
+                            else:
+                                st.error(f"Error Updating Deck Info")
+                    else:
+                        st.error(f"Invalid Deck Code: {deck_code}")
     st.divider()
     c1, c2, c3 = st.columns(3)
 

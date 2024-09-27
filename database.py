@@ -82,9 +82,9 @@ def update_game_decks(gid, deck, deck_link, player=True):
     db = get_database('Games')
     query = {'ID': gid}
     if player:
-        new_values = {"$set": {"Deck": deck, "Deck Link": deck_link}}
+        new_values = {"$set": {"Deck": [deck], "Deck Link": [deck_link]}}
     else:
-        new_values = {"$set": {"Opponent Deck": deck, "Opponent Deck Link": deck_link}}
+        new_values = {"$set": {"Opponent Deck": [deck], "Opponent Deck Link": [deck_link]}}
 
     result = db.update_one(query, new_values)
 
