@@ -102,7 +102,12 @@ def get_user_games(username):
     df = to_dataframe(data)
     if len(df) > 0:
         sorted_df = df.sort_values(by='Date', ascending=False)
-        sorted_df['Format'] = sorted_df['Format'].apply(lambda x: x if isinstance(x, list) else ['Archon'])
+        if 'Format' in sorted_df.columns:
+            # If 'Format' exists, apply the transformation
+            sorted_df['Format'] = sorted_df['Format'].apply(lambda x: x if isinstance(x, list) else ['Archon'])
+        else:
+            # If 'Format' does not exist, create it and fill with ['Archon']
+            sorted_df['Format'] = [['Archon']] * len(sorted_df)
         return sorted_df
     else:
         return None
