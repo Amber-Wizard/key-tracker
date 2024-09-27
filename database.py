@@ -235,6 +235,7 @@ def get_user_decks(username):
         user_decks['Win-Loss'] = wl
         user_decks['Winrate'] = winrates
         # user_decks['Deck Link'] = user_decks['Deck'].apply(lambda deck: user_games.loc[user_games['Deck'].apply(lambda x: x[0]) == deck, 'Deck Link'].apply(lambda x: x[0]).values[0])
+        user_decks = user_decks[user_decks['Games'] >= 2]
         user_decks['Deck'] = user_decks['Deck'].apply(lambda x: [x])
         return user_decks
     else:
