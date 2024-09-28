@@ -46,7 +46,7 @@ else:
 
 c1, c2 = st.columns([9, 1])
 c1.title(f":blue[{display_name}'s] KeyTracker")
-versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0"]
+versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0", "0.6.1"]
 
 changes = [
     [
@@ -81,6 +81,10 @@ changes = [
         'Improved Reap Rate Accuracy',
         'Improved Card Info Accuracy (Deck Analysis)',
         'Adjusted Amber Sources & House Calls (Deck Analysis)',
+    ],
+    [
+        'Added Chains, Deck, Discard, Archives, and Purge counts',
+        'Fixed ELO Error'
     ]
 ]
 
@@ -199,7 +203,7 @@ else:
         if deck_choice:
             selected_deck = deck_choice['selection']['rows']
             if len(selected_deck) == 0:
-                st.error("No game selected")
+                st.error("No deck selected")
             else:
                 if 'elo_data' in st.session_state:
                     del st.session_state['elo_data']

@@ -393,14 +393,14 @@ else:
                 m_start_index = None
 
             with st.expander(fr"$\texttt{{\large {turn_string.replace('_', ' ')}}}$", expanded=st.session_state.expand_all):
-                c1, c2, c3 = st.columns([1, 1, 2])
+                cols = st.columns([1.1, 1.1, 0.9, 0.8, 1, 1, 1])
                 keys = game_log[p]['keys'][t]
                 new_keys = max(keys - game_log[p]['keys'][t-1], 0)
 
                 if p == player:
-                    c1.markdown(f'<b class="hero-font">Keys: {keys} (+{new_keys})</b>', unsafe_allow_html=True)
+                    cols[0].markdown(f'<b class="hero-font">Keys: {keys} (+{new_keys})</b>', unsafe_allow_html=True)
                 else:
-                    c1.markdown(f'<b class="villain-font">Keys: {keys} (+{new_keys})</b>', unsafe_allow_html=True)
+                    cols[0].markdown(f'<b class="villain-font">Keys: {keys} (+{new_keys})</b>', unsafe_allow_html=True)
 
                 total_amber_gained = game_log[p]['amber_icons'][t] + game_log[p]['amber_reaped'][t] + game_log[p]['steal'][t] + game_log[p]['amber_effect'][t]
 
@@ -410,7 +410,25 @@ else:
                     last_amber_gained = game_log[p]['amber_icons'][t-1] + game_log[p]['amber_reaped'][t-1] + game_log[p]['steal'][t-1] + game_log[p]['amber_effect'][t-1]
                     amber_gained_turn = total_amber_gained - last_amber_gained
 
-                c2.markdown(f'<b class="amber-font">Amber: {game_log[p]["amber"][t]} (+{amber_gained_turn})</b>', unsafe_allow_html=True)
+                cols[1].markdown(f'<b class="amber-font">Amber: {game_log[p]["amber"][t]} (+{amber_gained_turn})</b>', unsafe_allow_html=True)
+
+                if 'chains' in game_log[p] and game_log[p]['chains'][t] != 0:
+                    cols[2].markdown(f'<b class="plain-font">Chains: {game_log[p]["chains"][t]}</b>', unsafe_allow_html=True)
+
+                if 'deck_count' in game_log[p]:
+                    cols[3].markdown(f'<b class="plain-font">Deck: {game_log[p]["deck_count"][t]}</b>', unsafe_allow_html=True)
+
+                if 'discard_count' in game_log[p]:
+                    cols[4].markdown(f'<b class="plain-font">Discard: {game_log[p]["discard_count"][t]}</b>', unsafe_allow_html=True)
+
+                if 'archives_count' in game_log[p] and game_log[p]['archives_count'][t] != 0:
+                    cols[5].markdown(f'<b class="plain-font">Archives: {game_log[p]["archives_count"][t]}</b>', unsafe_allow_html=True)
+                    next_col = 6
+                else:
+                    next_col = 5
+
+                if 'purged_count' in game_log[p] and game_log[p]['purged_count'][t] != 0:
+                    cols[next_col].markdown(f'<b class="plain-font">Purge: {game_log[p]["purged_count"][t]}</b>', unsafe_allow_html=True)
 
                 hands = st.session_state.game_data['Game Log'][0]['player_hand']
                 player_boards = st.session_state.game_data['Game Log'][0][player]['board']

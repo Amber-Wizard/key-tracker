@@ -255,14 +255,20 @@ def get_elo(player, deck):
     db = get_database('ELO')
     query = {'player': player, 'deck': deck}
     data = db.find_one(query)
+
     if not data:
-        insert = update_elo(player, deck, 1500)
+        update_result = update_elo(player, deck, 1500)
+
         data = {
-            '_id': insert.inserted_id,
+            '_id': update_result.upserted_id,  # This will contain the ID of the newly created document
             'player': player,
             'deck': deck,
             'score': 1500
         }
+
+        if data['_id'] is None:
+            data = db.find_one(query)
+
     return data
 
 
