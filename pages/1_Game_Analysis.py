@@ -483,8 +483,15 @@ else:
                     cols = st.columns(max(11, len(hands[max(t-1, 0)])))
 
                     for i, card in enumerate(hands[max(t-1, 0)]):
-                        image_link = card_image_dict[card]
-                        cols[i].image(image_link)
+                        if card not in card_image_dict:
+                            st.toast(f"Card image not found: {card}")
+                            image_link = None
+                        else:
+                            image_link = card_image_dict[card]
+                            try:
+                                cols[last_column].image(image_link)
+                            except:
+                                st.toast(f"Error getting card image: {image_link}")
 
                     st.divider()
 
@@ -504,11 +511,15 @@ else:
                     last_column = 0
                     for card, copies in new_cards_played.items():
                         for _ in range(copies):
-                            image_link = card_image_dict[card]
-                            try:
-                                cols[last_column].image(image_link)
-                            except:
-                                st.write(image_link)
+                            if card not in card_image_dict:
+                                st.toast(f"Card image not found: {card}")
+                                image_link = None
+                            else:
+                                image_link = card_image_dict[card]
+                                try:
+                                    cols[last_column].image(image_link)
+                                except:
+                                    st.toast(f"Error getting card image: {image_link}")
                             if last_column < card_split_ratio-1:
                                 last_column += 1
                             else:
@@ -516,8 +527,15 @@ else:
                     last_column = card_split_ratio
                     for card, copies in new_cards_discarded.items():
                         for _ in range(copies):
-                            image_link = card_image_dict[card]
-                            cols[last_column].image(image_link)
+                            if card not in card_image_dict:
+                                st.toast(f"Card image not found: {card}")
+                                image_link = None
+                            else:
+                                image_link = card_image_dict[card]
+                                try:
+                                    cols[last_column].image(image_link)
+                                except:
+                                    st.toast(f"Error getting card image: {image_link}")
                             if last_column < 10:
                                 last_column += 1
                             else:
@@ -529,8 +547,15 @@ else:
                     last_column = 0
                     for card, copies in new_cards_played.items():
                         for _ in range(copies):
-                            image_link = card_image_dict[card]
-                            cols[last_column].image(image_link)
+                            if card not in card_image_dict:
+                                st.toast(f"Card image not found: {card}")
+                                image_link = None
+                            else:
+                                image_link = card_image_dict[card]
+                                try:
+                                    cols[last_column].image(image_link)
+                                except:
+                                    st.toast(f"Error getting card image: {image_link}")
                             if last_column < 10:
                                 last_column += 1
                             else:
@@ -543,8 +568,15 @@ else:
                     last_column = 0
                     for card, copies in new_cards_discarded.items():
                         for _ in range(copies):
-                            image_link = card_image_dict[card]
-                            cols[last_column].image(image_link)
+                            if card not in card_image_dict:
+                                st.toast(f"Card image not found: {card}")
+                                image_link = None
+                            else:
+                                image_link = card_image_dict[card]
+                                try:
+                                    cols[last_column].image(image_link)
+                                except:
+                                    st.toast(f"Error getting card image: {image_link}")
                             if last_column < 10:
                                 last_column += 1
                             else:
