@@ -489,7 +489,7 @@ else:
                         else:
                             image_link = card_image_dict[card]
                             try:
-                                cols[last_column].image(image_link)
+                                cols[i].image(image_link)
                             except:
                                 st.toast(f"Error getting card image: {image_link}")
 
@@ -510,6 +510,7 @@ else:
                     cols = st.columns(11)
                     last_column = 0
                     for card, copies in new_cards_played.items():
+                        st.write(card)
                         for _ in range(copies):
                             if card not in card_image_dict:
                                 st.toast(f"Card image not found: {card}")
