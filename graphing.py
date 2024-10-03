@@ -154,7 +154,7 @@ def calculate_ttw(player_tav, player_data, opponent_amber_defense):
             reap_rate = None
         amber_delta = (player_data['amber_icons'][i] + player_data['amber_effect'][i] + player_data['steal'][i]) / ((i+1) / 2)
         if reap_rate is not None:
-            divisor = player_data['creatures'][i] * reap_rate + amber_delta
+            divisor = (player_data['creatures'][i] * reap_rate + amber_delta) * (1 - opponent_amber_defense / 100)
         else:
             divisor = 0
         if divisor > 0:
