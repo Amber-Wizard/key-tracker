@@ -505,7 +505,10 @@ else:
                     for card, copies in new_cards_played.items():
                         for _ in range(copies):
                             image_link = card_image_dict[card]
-                            cols[last_column].image(image_link)
+                            try:
+                                cols[last_column].image(image_link)
+                            except:
+                                st.write(image_link)
                             if last_column < card_split_ratio-1:
                                 last_column += 1
                             else:
