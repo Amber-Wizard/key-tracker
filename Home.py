@@ -44,9 +44,11 @@ if 'authentication_status' not in st.session_state or st.session_state.authentic
 else:
     display_name = st.session_state.name
 
-c1, c2 = st.columns([9, 1])
+c1, c2 = st.columns([8, 1], vertical_alignment='bottom')
 c1.title(f":blue[{display_name}'s] KeyTracker")
-versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0", "0.6.1"]
+# c2.image('https://i.imgur.com/8RFDrsG.png')
+
+versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0", "0.6.1", "0.7.0"]
 
 changes = [
     [
@@ -85,6 +87,20 @@ changes = [
     [
         'Added Chains, Deck, Discard, Archives, and Purge counts',
         'Fixed ELO Error'
+    ],
+    [
+        'Added Amber Skies & Skyborn',
+        'Added Cards Played by Turn % **(Deck Analysis)**',
+        'Added Deck Comparison **(Deck Analysis)**',
+        'Added House Winrates **(Deck Analysis)**',
+        'Added Individual Card Winrates **(Deck Analysis)**',
+        'Changed Game Length to % of Games **(Deck Analysis)**',
+        'Improved Site Performance **(Deck Analysis)**',
+        'Added Individual Survival Rate **(Game Analysis)**',
+        'Improved Survival Rate Accuracy',
+        'Improved Database Connection Handling',
+        "Changed 'Name' Field to 'TCO Username'",
+        'Fixed Various Bugs',
     ]
 ]
 
@@ -219,6 +235,9 @@ else:
                 elo_data = database.get_elo(st.session_state.name, deck)
                 st.session_state.elo_data = elo_data
                 st.session_state.deck = deck
+                st.session_state.deck_data_compare = None
+                share_id = elo_data['_id']
+                st.session_state.share_id = share_id
                 st.switch_page("pages/2_Deck_Analysis.py")
     st.write('')
     st.write('')

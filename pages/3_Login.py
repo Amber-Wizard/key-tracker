@@ -31,14 +31,14 @@ if 'authentication_status' not in st.session_state or st.session_state.authentic
     name, auth_status, username = authenticator.login(location="main")
     if st.session_state.authentication_status is False:
         st.error("Incorrect username/password")
-    if st.session_state.login_type == 'special':
+    if st.session_state.login_type == 'special' or st.session_state.authentication_status:
         st.session_state.login_type = 'normal'
         st.session_state.auto_login_check = True
         st.switch_page("Home.py")
     reg_username, reg_email, reg_name = None, None, None
     if authenticator:
         try:
-            reg_email, reg_username, reg_name, = authenticator.register_user(pre_authorization=False)
+            reg_email, reg_username, reg_name, = authenticator.register_user(pre_authorization=False, fields={'Name': 'TCO Username'})
         except RegisterError as e:
             st.error(f"{e}")
         try:

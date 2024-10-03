@@ -42,12 +42,3 @@ def get_authenticator():
     return auth
 
 
-def check_pw(username, password):
-    user_data = database.get_user(username)
-    correct_pw = user_data['password']
-    if hasher.Hasher([password]).check_pw(password, correct_pw):
-        return True
-    else:
-        return False
-
-

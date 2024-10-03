@@ -2,6 +2,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
 import ast
+from collections import Counter
 
 import dok_api
 
@@ -18,6 +19,104 @@ house_colors = {
     "staralliance": (250, 200, 80),
     "saurian": (232, 194, 60),
     "geistoid": (115, 75, 136),
+    "skyborn": (241, 235, 210),
+}
+
+
+house_dict = {
+    'Brobnar': {
+        'Image': 'https://archonarcana.com/images/thumb/e/e0/Brobnar.png/105px-Brobnar.png',
+        'Color': '#000000'
+    },
+    'Logos': {
+        'Image': 'https://archonarcana.com/images/thumb/c/ce/Logos.png/105px-Logos.png',
+        'Color': '#000000'
+    },
+    'Shadows': {
+        'Image': 'https://archonarcana.com/images/thumb/e/ee/Shadows.png/105px-Shadows.png',
+        'Color': '#000000'
+    },
+    'Sanctum': {
+        'Image': 'https://archonarcana.com/images/thumb/c/c7/Sanctum.png/105px-Sanctum.png',
+        'Color': '#000000'
+    },
+    'Mars': {
+        'Image': 'https://archonarcana.com/images/thumb/d/de/Mars.png/105px-Mars.png',
+        'Color': '#000000'
+    },
+    'Dis': {
+        'Image': 'https://archonarcana.com/images/thumb/e/e8/Dis.png/105px-Dis.png',
+        'Color': '#000000'
+    },
+    'Untamed': {
+        'Image': 'https://archonarcana.com/images/thumb/b/bd/Untamed.png/105px-Untamed.png',
+        'Color': '#000000'
+    },
+    'Saurian': {
+        'Image': 'https://archonarcana.com/images/9/9e/Saurian_P.png',
+        'Color': '#000000'
+    },
+    'StarAlliance': {
+        'Image': 'https://archonarcana.com/images/thumb/7/7d/Star_Alliance.png/105px-Star_Alliance.png',
+        'Color': '#000000'
+    },
+    'Ekwidon': {
+        'Image': 'https://archonarcana.com/images/thumb/3/31/Ekwidon.png/105px-Ekwidon.png',
+        'Color': '#000000'
+    },
+    'Unfathomable': {
+        'Image': 'https://archonarcana.com/images/thumb/1/10/Unfathomable.png/105px-Unfathomable.png',
+        'Color': '#000000'
+    },
+    'Geistoid': {
+        'Image': 'https://archonarcana.com/images/thumb/4/48/Geistoid.png/105px-Geistoid.png',
+        'Color': '#000000'
+    },
+    'Skyborn': {
+        'Image': 'https://archonarcana.com/images/0/06/Skyborn.png',
+        'Color': '#000000'
+    },
+}
+
+
+set_dict = {
+    'CotA': {
+        'Image': 'https://decksofkeyforge.com/static/media/cota-dark.07e0e2bc9a12461d3e696422cbf9351d.svg',
+        'Color': '#000000'
+    },
+    'AoA': {
+        'Image': 'https://decksofkeyforge.com/static/media/aoa-dark.5b9932d1a46bae1af4b72affdc216a60.svg',
+        'Color': '#000000'
+    },
+    'WC': {
+        'Image': 'https://decksofkeyforge.com/static/media/wc-dark.28c626544d41d4ae0a23c408e0ce9341.svg',
+        'Color': '#000000'
+    },
+    'MM': {
+        'Image': 'https://decksofkeyforge.com/static/media/mm-dark.eb97671dd686e77d4befdb66d8532f5f.svg',
+        'Color': '#000000'
+    },
+    'DT': {
+        'Image': 'https://decksofkeyforge.com/static/media/dt-dark.17fe0a29b6699f9583a09111b6f03402.svg',
+        'Color': '#000000'
+    },
+    'WoE': {
+        'Image': 'https://decksofkeyforge.com/static/media/woe-dark.6498ca6ef89a26a1685e068b8969f37d.svg',
+        'Color': '#000000'
+    },
+    'GR': {
+        'Image': 'https://decksofkeyforge.com/static/media/gr-dark.d713c39aca369e78957eea6597c6f02f.svg',
+        'Color': '#000000'
+    },
+    'VM23': {
+        'Image': 'https://decksofkeyforge.com/static/media/vm23-dark.d797a995bef735704fac3c8c41e1c134.svg',
+        'Color': '#000000'
+    },
+    'VM24': {
+        'Image': 'https://decksofkeyforge.com/static/media/vm23-dark.d797a995bef735704fac3c8c41e1c134.svg',
+        'Color': '#000000'
+    },
+
 }
 
 
@@ -52,9 +151,12 @@ def calculate_ttw(player_tav, player_data, opponent_amber_defense):
         if avg_creatures > 0:
             reap_rate = player_data['amber_reaped'][i] / (((i+1) * avg_creatures) / 2)
         else:
-            reap_rate = 0
+            reap_rate = None
         amber_delta = (player_data['amber_icons'][i] + player_data['amber_effect'][i] + player_data['steal'][i]) / ((i+1) / 2)
-        divisor = player_data['creatures'][i] * reap_rate + amber_delta
+        if reap_rate is not None:
+            divisor = player_data['creatures'][i] * reap_rate + amber_delta
+        else:
+            divisor = 0
         if divisor > 0:
             turns_remaining = amber_remaining / ((player_data['creatures'][i] * reap_rate + amber_delta) * (1 - opponent_amber_defense / 100))
         else:
@@ -146,10 +248,17 @@ def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_n
     opponent_house_calls = house_calls(opponent_data, opponent_name, games, 'replay')
     player_card_data = get_card_information(player_data, analysis_type='Deck')
     opponent_card_data = get_card_information(opponent_data, analysis_type='Deck')
-    player_survival_rate = calculate_survival_rate(player_data)
-    opponent_survival_rate = calculate_survival_rate(opponent_data)
+    player_survival_rate = calculate_deck_survival_rate(player_data)
+    opponent_survival_rate = calculate_deck_survival_rate(opponent_data)
+    normalized_turns = normalize_turns(player_data['turns'])
     game_dataframe = pd.DataFrame({'Player Amber': player_tav, 'Opponent Amber': opponent_tav, 'Player Amber Defense': p_amber_defense, 'Opponent Amber Defense': op_amber_defense, 'Player Cards': player_data['cards_played'], 'Opponent Cards': opponent_data['cards_played'], 'Player Creatures': player_data['creatures'], 'Opponent Creatures': opponent_data['creatures'], 'Player Survival Rate': player_survival_rate, 'Opponent Survival Rate': opponent_survival_rate, 'Player Prediction': player_ttw, 'Opponent Prediction': opponent_ttw, 'Player Delta': player_delta, 'Opponent Delta': opponent_delta, 'Player Reap Rate': player_reap_rate, 'Opponent Reap Rate': opponent_reap_rate})
-    return game_dataframe, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, player_card_data, opponent_card_data, player_data['turns']
+    return game_dataframe, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, player_card_data, opponent_card_data, normalized_turns
+
+
+def normalize_turns(turns):
+    max_turns = turns[0]
+    normalized_turns = [round(100*t/max_turns) for t in turns]
+    return normalized_turns
 
 
 def calculate_tide(player_data):
@@ -159,50 +268,130 @@ def calculate_tide(player_data):
         return None
 
 
-def calculate_survival_rate(player_data):
-    creatures_played = []
-    individual_cards_played = player_data['individual_cards_played']
-    for i, card_list in enumerate(individual_cards_played):
-        creatures_played_turn = 0
-
-        if i == 0:
-            card_list_turn = card_list
+def calculate_deck_survival_rate(player_data):
+    survival_rate = []
+    for i in range(len(player_data['survives'])):
+        s = sum(player_data['survives'][:i+1])
+        d = sum(player_data['deaths'][:i+1])
+        if s + d > 0:
+            survival_rate.append(round(100 * s / (s + d)))
+            survival_rate.append(round(100 * s / (s + d)))
         else:
-            card_list_turn = subtract_dicts(individual_cards_played[i-1], card_list)
+            survival_rate.append(0)
+            survival_rate.append(0)
 
-        if len(card_list_turn) > 0:
-            for card, copies in card_list_turn.items():
-                card_type = dok_api.check_card_type(card)
-                if card_type == 'Creature':
-                    creatures_played_turn += copies
+    if len(player_data['creatures']) > len(survival_rate):
+        for _ in range(len(player_data['creatures']) - len(survival_rate)):
+            survival_rate.append(survival_rate[-1])
+    elif len(survival_rate) > len(player_data['creatures']):
+        survival_rate = survival_rate[:len(player_data['creatures'])]
 
-        creatures_played.append(creatures_played_turn)
+    return survival_rate
 
+
+def calculate_survival_rate(player_data, player_second=True):
     survives = []
     deaths = []
     survival_rates = []
-    for i in range(len(player_data['creatures'])):
+    individual_survives = {}
+    individual_deaths = {}
+    individual_survival_rates = {}
+    for i in range(player_second, len(player_data['creatures']), 2):
         creatures_turn = player_data['creatures'][i]
-        new_creatures_turn = creatures_played[i]
-        survives_turn = creatures_turn - new_creatures_turn
-        if i > 0:
-            deaths_turn = new_creatures_turn + player_data['creatures'][i-1] - creatures_turn
-        else:
-            deaths_turn = 0
-        survives.append(survives_turn)
-        deaths.append(deaths_turn)
+        board_turn = player_data['board'][i]
+        if len(player_data['creatures']) > i+1:
+            next_creatures_turn = player_data['creatures'][i+1]
+            next_board_turn = player_data['board'][i+1]
 
-        total_survives = sum(survives)
-        total_deaths = sum(deaths)
-        if total_survives + total_deaths > 0:
-            survival_rate = min(100, round(100 * total_survives / (total_survives + total_deaths)))
-            survival_rate = max(0, survival_rate)
-        else:
-            survival_rate = None
+            deaths_turn = max(creatures_turn - next_creatures_turn, 0)
 
-        survival_rates.append(survival_rate)
+            board_frequency_dict = dict(Counter(board_turn))
 
-    return survival_rates
+            for c, num in board_frequency_dict.items():
+                card_survives = min(next_board_turn.count(c), num)
+                card_deaths = max(num - next_board_turn.count(c), 0)
+
+                if c not in individual_survives:
+                    individual_survives[c] = []
+                    individual_deaths[c] = []
+                    individual_survival_rates[c] = []
+
+                individual_survives[c].append(card_survives)
+                individual_deaths[c].append(card_deaths)
+                total_survives = sum(individual_survives[c])
+                total_deaths = sum(individual_deaths[c])
+
+                if total_survives + total_deaths > 0:
+                    individual_survival_rate = max(0, min(100, round(100 * total_survives / (total_survives + total_deaths))))
+                else:
+                    individual_survival_rate = None
+
+                individual_survival_rates[c].append(individual_survival_rate)
+                individual_survival_rates[c].append(individual_survival_rate)
+
+            survives.append(min(next_creatures_turn, creatures_turn))
+            deaths.append(deaths_turn)
+
+            total_survives = sum(survives)
+            total_deaths = sum(deaths)
+            if total_survives + total_deaths > 0:
+                survival_rate = max(0, min(100, round(100 * total_survives / (total_survives + total_deaths))))
+            else:
+                survival_rate = None
+
+            survival_rates.append(survival_rate)
+            survival_rates.append(survival_rate)
+
+    for _ in range(len(player_data['creatures']) - len(survival_rates)):
+        survival_rates.append(survival_rates[-1])
+
+    return survival_rates, survives, deaths, individual_survival_rates, individual_survives, individual_deaths
+
+
+# def calculate_survival_rate(player_data):
+#     creatures_played = []
+#     individual_cards_played = player_data['individual_cards_played']
+#     for i, card_list in enumerate(individual_cards_played):
+#         creatures_played_turn = 0
+#
+#         if i == 0:
+#             card_list_turn = card_list
+#         else:
+#             card_list_turn = subtract_dicts(individual_cards_played[i-1], card_list)
+#
+#         if len(card_list_turn) > 0:
+#             for card, copies in card_list_turn.items():
+#                 card_type = dok_api.check_card_type(card)
+#                 if card_type == 'Creature':
+#                     creatures_played_turn += copies
+#
+#         creatures_played.append(creatures_played_turn)
+#
+#     survives = []
+#     deaths = []
+#     survival_rates = []
+#     for i in range(len(player_data['creatures'])):
+#         creatures_turn = player_data['creatures'][i]
+#         new_creatures_turn = creatures_played[i]
+#         survives_turn = creatures_turn - new_creatures_turn
+#         if i > 0:
+#             deaths_turn = new_creatures_turn + player_data['creatures'][i-1] - creatures_turn
+#         else:
+#             deaths_turn = 0
+#         survives.append(survives_turn)
+#         deaths.append(deaths_turn)
+#
+#         total_survives = sum(survives)
+#         total_deaths = sum(deaths)
+#         if total_survives + total_deaths > 0:
+#             survival_rate = min(100, round(100 * total_survives / (total_survives + total_deaths)))
+#             survival_rate = max(0, survival_rate)
+#         else:
+#             survival_rate = None
+#
+#         survival_rates.append(survival_rate)
+#
+#     return survival_rates
 
 
 def analyze_game(username, game_data):
@@ -228,13 +417,18 @@ def create_game_analysis_graphs(player_data, username, opponent_data, opponent_n
     opponent_amber_sources = amber_sources(values, opponent_name, 'replay')
     player_house_calls = house_calls(player_data, username, 1, 'replay')
     opponent_house_calls = house_calls(opponent_data, opponent_name, 1, 'replay')
-    player_card_data = get_card_information(player_data)
-    opponent_card_data = get_card_information(opponent_data)
-    player_survival_rate = calculate_survival_rate(player_data)
-    opponent_survival_rate = calculate_survival_rate(opponent_data)
+    if first_player == username:
+        op_second = True
+        p_second = False
+    else:
+        op_second = False
+        p_second = True
+    player_survival_rate, s, d, player_individual_survival_rates, ind_s, ind_d = calculate_survival_rate(player_data, p_second)
+    opponent_survival_rate, s, d, opponent_individual_survival_rates, ind_s, ind_d = calculate_survival_rate(opponent_data, op_second)
+    player_card_data = get_card_information(player_data, player_individual_survival_rates)
+    opponent_card_data = get_card_information(opponent_data, opponent_individual_survival_rates)
     tide = calculate_tide(player_data)
     game_dataframe = pd.DataFrame({'Player Amber': player_tav, 'Opponent Amber': opponent_tav, 'Player Amber Gained': p_amber_gained, 'Opponent Amber Gained': op_amber_gained, 'Player Amber Defense': p_amber_defense, 'Opponent Amber Defense': op_amber_defense, 'Player Cards': player_data['cards_played'], 'Opponent Cards': opponent_data['cards_played'], 'Player Creatures': player_data['creatures'], 'Opponent Creatures': opponent_data['creatures'], 'Player Survival Rate': player_survival_rate, 'Opponent Survival Rate': opponent_survival_rate, 'Player Prediction': player_ttw, 'Opponent Prediction': opponent_ttw, 'Player Delta': player_delta, 'Opponent Delta': opponent_delta, 'Player Reap Rate': player_reap_rate, 'Opponent Reap Rate': opponent_reap_rate})
-    print(tide)
     if tide:
         game_dataframe['Tide'] = tide
     if 'tokens_created' in player_data:
@@ -366,14 +560,14 @@ def house_calls(data, name, games, save):
     return fig
 
 
-def get_card_information(player_data, analysis_type='Game'):
+def get_card_information(player_data, individual_survival_rates=None, analysis_type='Game'):
     # link_base = "https://keyforge-card-images.s3-us-west-2.amazonaws.com/card-imgs/"
     # remove_chars = "æ””“!,.-…’'éĕŏăŭĭ\""
     if analysis_type == 'Game':
         card_played_type = 'individual_cards_played'
     else:
         card_played_type = 'individual_cards_played_total'
-    df = pd.DataFrame(columns=["Card", "Turn", "Played", "Discarded", "Discarded %", "Amber", "Amber %", "Reaps", "Icons", "Steal", "Effects"])
+    df = pd.DataFrame(columns=["Card", "Turn", "Played", "Discarded", "Discarded %", "Amber", "Amber %", "Reaps", "Icons", "Steal", "Effects", "Survival %"])
     if analysis_type == 'Game':
         amber_gained = player_data['amber_icons'][-1] + player_data['amber_effect'][-1] + player_data['amber_reaped'][-1] + player_data['steal'][-1]
     else:
@@ -405,11 +599,12 @@ def get_card_information(player_data, analysis_type='Game'):
         else:
             amber_pct = 0
 
-        # translation_table = str.maketrans('', '', remove_chars)
-        # link_name = card.lower().translate(translation_table).replace(' ', '-')
-        # image_link = f"{link_base}{link_name}.png"
+        if individual_survival_rates and card in individual_survival_rates:
+            survival_rate = individual_survival_rates[card][-1]
+        else:
+            survival_rate = '--'
 
-        new_row = [card, turn, played, discarded, discarded_pct, total_amber, amber_pct, amber_reaped, amber_icons, amber_steal, amber_effect]
+        new_row = [card, turn, played, discarded, discarded_pct, total_amber, amber_pct, amber_reaped, amber_icons, amber_steal, amber_effect, survival_rate]
         df.loc[len(df)] = new_row
     return df
 

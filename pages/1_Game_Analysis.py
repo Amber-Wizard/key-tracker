@@ -32,7 +32,7 @@ except:
 st.markdown("""
 <style>
 .deck-font {
-    font-size: 32px !important;
+    font-size: 28px !important;
 }
 .game-data-font {
     font-size: 28px !important;
@@ -50,6 +50,14 @@ st.markdown("""
 }
 .villain-font {
     font-size: 22px !important;
+    color: #ff4b4b !important;
+}
+.hero-title-font {
+    font-size: 32px !important;
+    color: #60b4ff !important;
+}
+.villain-title-font {
+    font-size: 32px !important;
     color: #ff4b4b !important;
 }
 .amber-font {
@@ -87,6 +95,11 @@ if game_id:
 if 'game_data' not in st.session_state:
     st.error("No game selected")
 else:
+    player = st.session_state.game_data['Player'][0].strip()
+    opponent = st.session_state.game_data['Opponent'][0].strip()
+    starting_player = st.session_state.game_data['Starting Player'][0].strip()
+    deck = st.session_state.game_data["Deck"][0].strip()
+
     c1, c2, c3, c4 = st.columns([22, 1, 1, 1])
     c1.markdown(f'<b class="game-data-font">{st.session_state.game_data["Date"][0]}</b>', unsafe_allow_html=True)
 
@@ -103,9 +116,13 @@ else:
     home = c3.button("🏠")
     if home:
         st.switch_page("Home.py")
+    # st.write('')
+    # c1, c2 = st.columns([1, 13], vertical_alignment='center')
+    # c1.image('https://i.imgur.com/uLxY9Zy.png')
+    # c2.markdown(f'<b class="hero-title-font">{player}</b>', unsafe_allow_html=True)
     st.write('')
     c1, c2 = st.columns([7, 1])
-    c1.markdown(f'<b class="deck-font">{st.session_state.game_data["Deck"][0]}</b>', unsafe_allow_html=True)
+    c1.markdown(f'<b class="deck-font">{deck}</b>', unsafe_allow_html=True)
     if st.session_state.game_data["Deck Link"][0]:
         c2.link_button("Deck Info", st.session_state.game_data["Deck Link"][0])
     else:
@@ -147,15 +164,17 @@ else:
                                 st.error(f"Error Updating Deck Info")
                     else:
                         st.error(f"Invalid Deck Code: {deck_code}")
+    # st.write('')
+    # c1, c2 = st.columns([1, 13], vertical_alignment='center')
+    # c1.image('https://i.imgur.com/l1vyV7C.png')
+    # c2.markdown(f'<b class="villain-title-font">{opponent}</b>', unsafe_allow_html=True)
     st.divider()
     c1, c2, c3 = st.columns(3)
 
     c1.subheader("Opponent")
     c2.subheader("First Player")
     c3.subheader("Winner")
-    player = st.session_state.game_data['Player'][0].strip()
-    opponent = st.session_state.game_data['Opponent'][0].strip()
-    starting_player = st.session_state.game_data['Starting Player'][0].strip()
+
     if starting_player == opponent:
         second_player = player
     elif starting_player == player:
@@ -340,9 +359,11 @@ else:
     st.write('')
     c1, c2 = st.columns([6, 1])
     c1.subheader("Turns")
-    c2.button("Expand All", on_click=expand_turns)
-
-    link_base = "https://keyforge-card-images.s3-us-west-2.amazonaws.com/card-imgs/"
+    if st.session_state.expand_all:
+        exp_button_string = "Collapse All"
+    else:
+        exp_button_string = "Expand All"
+    c2.button(exp_button_string, on_click=expand_turns)
 
     game_log = st.session_state.game_data['Game Log'][0]
     if ["Key ", " phase -  ", opponent] in st.session_state.game_data['Player Frags'][0]:
@@ -353,6 +374,8 @@ else:
         opponent_messages = st.session_state.game_data['Opponent Frags'][0]
 
     card_name_list = dok_api.card_df['cardTitle'].tolist()
+    card_image_dict = dok_api.card_df.set_index('cardTitle')['cardTitleUrl'].to_dict()
+
     with st.spinner('Creating turn replays...'):
         for t in range(len(game_log[starting_player]['cards_played'])):
             if t % 2 == 0:
@@ -460,9 +483,7 @@ else:
                     cols = st.columns(max(11, len(hands[max(t-1, 0)])))
 
                     for i, card in enumerate(hands[max(t-1, 0)]):
-                        translation_table = str.maketrans('', '', remove_chars)
-                        link_name = card.lower().translate(translation_table).replace(' ', '-')
-                        image_link = f"{link_base}{link_name}.png"
+                        image_link = card_image_dict[card]
                         cols[i].image(image_link)
 
                     st.divider()
@@ -483,9 +504,7 @@ else:
                     last_column = 0
                     for card, copies in new_cards_played.items():
                         for _ in range(copies):
-                            translation_table = str.maketrans('', '', remove_chars)
-                            link_name = card.lower().translate(translation_table).replace(' ', '-')
-                            image_link = f"{link_base}{link_name}.png"
+                            image_link = card_image_dict[card]
                             cols[last_column].image(image_link)
                             if last_column < card_split_ratio-1:
                                 last_column += 1
@@ -494,9 +513,7 @@ else:
                     last_column = card_split_ratio
                     for card, copies in new_cards_discarded.items():
                         for _ in range(copies):
-                            translation_table = str.maketrans('', '', remove_chars)
-                            link_name = card.lower().translate(translation_table).replace(' ', '-')
-                            image_link = f"{link_base}{link_name}.png"
+                            image_link = card_image_dict[card]
                             cols[last_column].image(image_link)
                             if last_column < 10:
                                 last_column += 1
@@ -509,9 +526,7 @@ else:
                     last_column = 0
                     for card, copies in new_cards_played.items():
                         for _ in range(copies):
-                            translation_table = str.maketrans('', '', remove_chars)
-                            link_name = card.lower().translate(translation_table).replace(' ', '-')
-                            image_link = f"{link_base}{link_name}.png"
+                            image_link = card_image_dict[card]
                             cols[last_column].image(image_link)
                             if last_column < 10:
                                 last_column += 1
@@ -525,9 +540,7 @@ else:
                     last_column = 0
                     for card, copies in new_cards_discarded.items():
                         for _ in range(copies):
-                            translation_table = str.maketrans('', '', remove_chars)
-                            link_name = card.lower().translate(translation_table).replace(' ', '-')
-                            image_link = f"{link_base}{link_name}.png"
+                            image_link = card_image_dict[card]
                             cols[last_column].image(image_link)
                             if last_column < 10:
                                 last_column += 1
@@ -565,15 +578,11 @@ else:
                     cols = st.columns(c_number)
 
                     for i, card in enumerate(board):
-                        translation_table = str.maketrans('', '', remove_chars)
-                        link_name = card.lower().translate(translation_table).replace(' ', '-')
-                        image_link = f"{link_base}{link_name}.png"
+                        image_link = card_image_dict[card]
                         cols[i].image(image_link)
 
                     for j, card in enumerate(artifact):
-                        translation_table = str.maketrans('', '', remove_chars)
-                        link_name = card.lower().translate(translation_table).replace(' ', '-')
-                        image_link = f"{link_base}{link_name}.png"
+                        image_link = card_image_dict[card]
                         if len(artifact) == 1:
                             cols[c_number-2].image(image_link)
                         else:

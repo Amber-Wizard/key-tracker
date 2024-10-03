@@ -12,7 +12,9 @@ def get_turn_played(player_data, card_name, analysis_type='replay'):
         return player_data['turn_played'][-1].get(card_name, 0)
 
 
-def analyze_deck(deck_name, pilot, graphs=True):
+# def analyze_cards(deck_games, pilot):
+
+def analyze_deck(deck_name, pilot, graphs=True, cards=True):
     deck_games = database.get_deck_games(pilot, deck_name)
     aggregate_data = {pilot: {'turns': [],
                               'cards_played': [],
@@ -28,6 +30,8 @@ def analyze_deck(deck_name, pilot, graphs=True):
                               'total_amber_effect': [0],
                               'total_amber_reaped': [0],
                               'total_steal': [0],
+                              'card_wins': {},
+                              'card_losses': {},
                               'amber': [],
                               'keys': [],
                               'creatures': [],
@@ -35,7 +39,10 @@ def analyze_deck(deck_name, pilot, graphs=True):
                               'amber_icons': [],
                               'amber_effect': [],
                               'amber_reaped': [],
-                              'steal': []},
+                              'steal': [],
+                              'survives': [],
+                              'deaths': [],
+                              'survival_rate': []},
                       'opponent': {'turns': [],
                                    'cards_played': [],
                                    'turn_played': [{}],
@@ -50,6 +57,8 @@ def analyze_deck(deck_name, pilot, graphs=True):
                                    'total_amber_effect': [0],
                                    'total_amber_reaped': [0],
                                    'total_steal': [0],
+                                   'card_wins': {},
+                                   'card_losses': {},
                                    'amber': [],
                                    'keys': [],
                                    'creatures': [],
@@ -57,14 +66,24 @@ def analyze_deck(deck_name, pilot, graphs=True):
                                    'amber_icons': [],
                                    'amber_effect': [],
                                    'amber_reaped': [],
-                                   'steal': []}}
+                                   'steal': [],
+                                   'survives': [],
+                                   'deaths': [],
+                                   'survival_rate': []}}
+
     for idx, row in deck_games.iterrows():
         game_data = row['Game Log'][0]
         names = list(game_data.keys())
         opponent_name = [name for name in names if name != pilot and name != 'player_hand'][0]
+        winner = row['Winner'][0]
+        first_player = row['Starting Player']
+        if first_player == pilot:
+            sp_list = [False, True]
+        else:
+            sp_list = [True, False]
         player_data = game_data[pilot]
         opponent_data = game_data[opponent_name]
-        for player, p_data in zip([pilot, 'opponent'], [player_data, opponent_data]):
+        for player, p_data, sp in zip([pilot, 'opponent'], [player_data, opponent_data], sp_list):
             for j in range(len(p_data['cards_played'])):
                 if j >= len(aggregate_data[player]['turns']):
                     aggregate_data[player]['turns'].append(1)
@@ -76,6 +95,10 @@ def analyze_deck(deck_name, pilot, graphs=True):
                     for val in ['cards_played', 'amber', 'keys', 'creatures', 'amber_icons', 'amber_effect', 'amber_reaped', 'steal']:
                         aggregate_data[player][val][j] += p_data[val][j]
                 for card, played in p_data['individual_cards_played'][j].items():
+                    if j != 0:
+                        if card in p_data['individual_cards_played'][j-1]:
+                            played = played - p_data['individual_cards_played'][j-1][card]
+
                     if card in aggregate_data[player]['individual_cards_played'][j]:
                         aggregate_data[player]['individual_cards_played'][j][card] += played
                     else:
@@ -87,11 +110,16 @@ def analyze_deck(deck_name, pilot, graphs=True):
             aggregate_data[player]['total_amber_reaped'][-1] += p_data['amber_reaped'][-1]
             aggregate_data[player]['total_steal'][-1] += p_data['steal'][-1]
 
-            if player == 'opponent':
-                player_name = row['Opponent']
-            else:
-                player_name = pilot
             for card, played in p_data['individual_cards_played'][-1].items():
+                if winner == pilot:
+                    card_win_dict = aggregate_data[player]['card_wins']
+                else:
+                    card_win_dict = aggregate_data[player]['card_losses']
+                if card in card_win_dict:
+                    card_win_dict[card] += 1
+                else:
+                    card_win_dict[card] = 1
+
                 cards_played_dict = aggregate_data[player]['individual_cards_played_total'][-1]
                 if card in cards_played_dict:
                     cards_played_dict[card] += played
@@ -141,6 +169,23 @@ def analyze_deck(deck_name, pilot, graphs=True):
                 else:
                     steal_dict[card] = amber
 
+            survival_rate, survive, death, individual_survival_rate, individual_survive, individual_death = graphing.calculate_survival_rate(p_data, sp)
+
+            agg_survives = aggregate_data[player]['survives']
+            agg_deaths = aggregate_data[player]['deaths']
+
+            for i, s in enumerate(survive):
+                if i >= len(agg_survives):
+                    agg_survives.append(s)
+                else:
+                    agg_survives[i] += s
+
+            for i, d in enumerate(death):
+                if i >= len(agg_deaths):
+                    agg_deaths.append(d)
+                else:
+                    agg_deaths[i] += d
+
     for p_agg in aggregate_data.values():
         p_agg['turns'].append(1)  # add 1 in case no 1's appear
         first_one_index = p_agg['turns'].index(1)  # find first 1
@@ -155,9 +200,9 @@ def analyze_deck(deck_name, pilot, graphs=True):
         for stat in ['total_amber_icons', 'total_amber_effect', 'total_amber_reaped', 'total_steal']:
             p_agg[stat][-1] = round(p_agg[stat][-1] / len(deck_games), 1)
         p_agg['individual_cards_played'] = p_agg['individual_cards_played'][:first_one_index]
-        for i, card_dict in enumerate(p_agg['individual_cards_played']):
-            for card in card_dict:
-                card_dict[card] = round(card_dict[card]/p_agg['turns'][i], 1)
+        # for i, card_dict in enumerate(p_agg['individual_cards_played']):
+        #     for card in card_dict:
+        #         card_dict[card] = round(card_dict[card]/p_agg['turns'][i], 2)
 
     return aggregate_data
 
