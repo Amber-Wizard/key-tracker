@@ -510,7 +510,6 @@ else:
                     cols = st.columns(11)
                     last_column = 0
                     for card, copies in new_cards_played.items():
-                        st.write(card)
                         for _ in range(copies):
                             if card not in card_image_dict:
                                 st.toast(f"Card image not found: {card}")
