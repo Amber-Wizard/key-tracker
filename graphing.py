@@ -252,6 +252,8 @@ def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_n
     opponent_survival_rate = calculate_deck_survival_rate(opponent_data)
     normalized_turns = normalize_turns(player_data['turns'])
     game_dataframe = pd.DataFrame({'Player Amber': player_tav, 'Opponent Amber': opponent_tav, 'Player Amber Defense': p_amber_defense, 'Opponent Amber Defense': op_amber_defense, 'Player Cards': player_data['cards_played'], 'Opponent Cards': opponent_data['cards_played'], 'Player Creatures': player_data['creatures'], 'Opponent Creatures': opponent_data['creatures'], 'Player Survival Rate': player_survival_rate, 'Opponent Survival Rate': opponent_survival_rate, 'Player Prediction': player_ttw, 'Opponent Prediction': opponent_ttw, 'Player Delta': player_delta, 'Opponent Delta': opponent_delta, 'Player Reap Rate': player_reap_rate, 'Opponent Reap Rate': opponent_reap_rate})
+    idx = next((i for i, v in enumerate(normalized_turns) if v <= 10), None)
+    game_dataframe = game_dataframe[:idx]
     return game_dataframe, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, player_card_data, opponent_card_data, normalized_turns
 
 
