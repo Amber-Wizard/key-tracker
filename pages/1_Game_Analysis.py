@@ -88,6 +88,10 @@ if 'game_id' in st.session_state:
 def pull_game_data(gid):
     with st.spinner('Getting game data...'):
         st.session_state.game_data = database.get_game(gid)
+        if 'player_info' in st.session_state:
+            del st.session_state['player_info']
+        if 'opponent_info' in st.session_state:
+            del st.session_state['opponent_info']
 
 if game_id:
     pull_game_data(game_id)
@@ -96,7 +100,21 @@ if 'game_data' not in st.session_state:
     st.error("No game selected")
 else:
     player = st.session_state.game_data['Player'][0].strip()
+    if 'player_info' not in st.session_state:
+        st.session_state.player_info = database.get_user(player)
+        if 'icon_link' in st.session_state.player_info:
+            st.session_state.player_icon = st.session_state.player_info['icon_link']
+        else:
+            st.session_state.player_icon = 'https://i.imgur.com/ib66iB9.png'
+
     opponent = st.session_state.game_data['Opponent'][0].strip()
+    if 'opponent_info' not in st.session_state:
+        st.session_state.opponent_info = database.get_user(opponent)
+        if st.session_state.opponent_info and 'icon_link' in st.session_state.opponent_info:
+            st.session_state.opponent_icon = st.session_state.opponent_info['icon_link']
+        else:
+            st.session_state.opponent_icon = 'https://i.imgur.com/ib66iB9.png'
+            
     starting_player = st.session_state.game_data['Starting Player'][0].strip()
     deck = st.session_state.game_data["Deck"][0].strip()
 
@@ -116,10 +134,10 @@ else:
     home = c3.button("🏠")
     if home:
         st.switch_page("Home.py")
-    # st.write('')
-    # c1, c2 = st.columns([1, 13], vertical_alignment='center')
-    # c1.image('https://i.imgur.com/uLxY9Zy.png')
-    # c2.markdown(f'<b class="hero-title-font">{player}</b>', unsafe_allow_html=True)
+    st.write('')
+    c1, c2 = st.columns([1, 13], vertical_alignment='center')
+    c1.image(st.session_state.player_icon)
+    c2.markdown(f'<b class="hero-title-font">{player}</b>', unsafe_allow_html=True)
     st.write('')
     c1, c2 = st.columns([7, 1])
     c1.markdown(f'<b class="deck-font">{deck}</b>', unsafe_allow_html=True)
@@ -164,29 +182,34 @@ else:
                                 st.error(f"Error Updating Deck Info")
                     else:
                         st.error(f"Invalid Deck Code: {deck_code}")
-    # st.write('')
-    # c1, c2 = st.columns([1, 13], vertical_alignment='center')
-    # c1.image('https://i.imgur.com/l1vyV7C.png')
-    # c2.markdown(f'<b class="villain-title-font">{opponent}</b>', unsafe_allow_html=True)
+    st.write('')
+    c1, c2 = st.columns([1, 13], vertical_alignment='center')
+    c1.image(st.session_state.opponent_icon)
+    c2.markdown(f'<b class="villain-title-font">{opponent}</b>', unsafe_allow_html=True)
     st.divider()
     c1, c2, c3 = st.columns(3)
 
-    c1.subheader("Opponent")
-    c2.subheader("First Player")
+    c1.subheader("First Player")
+    c2.subheader("Keys")
     c3.subheader("Winner")
-
     if starting_player == opponent:
         second_player = player
     elif starting_player == player:
         second_player = opponent
     else:
         second_player = None
+
+    game_log = st.session_state.game_data['Game Log'][0]
+
     winner = st.session_state.game_data['Winner'][0]
-    c1.markdown(f'<b class="villain-font">{opponent}</b>', unsafe_allow_html=True)
+
     if starting_player == player:
-        c2.markdown(f'<b class="hero-font">{starting_player}</b>', unsafe_allow_html=True)
+        c1.markdown(f'<b class="hero-font">{starting_player}</b>', unsafe_allow_html=True)
     else:
-        c2.markdown(f'<b class="villain-font">{starting_player}</b>', unsafe_allow_html=True)
+        c1.markdown(f'<b class="villain-font">{starting_player}</b>', unsafe_allow_html=True)
+
+    c2.markdown(f'<b class="hero-font">{game_log[player]["keys"][-1]}</b><b class="plain-font">-</b><b class="villain-font">{game_log[opponent]["keys"][-1]}</b>', unsafe_allow_html=True)
+
     if winner == player:
         c3.markdown(f'<b class="hero-font">{winner}</b>', unsafe_allow_html=True)
     else:
@@ -195,7 +218,11 @@ else:
     st.write(' ')
     st.write(' ')
     with st.spinner('Analyzing game data...'):
-        game_df, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, player_card_data, opponent_card_data = graphing.analyze_game(player, st.session_state.game_data)
+        if 'settings' in st.session_state and 'high_contrast' in st.session_state.settings:
+            high_contrast = st.session_state.settings['high_contrast']
+        else:
+            high_contrast = False
+        game_df, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, player_card_data, opponent_card_data = graphing.analyze_game(player, st.session_state.game_data, high_contrast=high_contrast)
     if not game_df.empty:
         length = len(game_df) - 1
         game_df['Actual'] = (length - pd.Series(game_df.index)) / 2
@@ -365,7 +392,6 @@ else:
         exp_button_string = "Expand All"
     c2.button(exp_button_string, on_click=expand_turns)
 
-    game_log = st.session_state.game_data['Game Log'][0]
     if ["Key ", " phase -  ", opponent] in st.session_state.game_data['Player Frags'][0]:
         opponent_messages = st.session_state.game_data['Player Frags'][0]
         player_messages = st.session_state.game_data['Opponent Frags'][0]
@@ -453,15 +479,16 @@ else:
                 if 'purged_count' in game_log[p] and game_log[p]['purged_count'][t] != 0:
                     cols[next_col].markdown(f'<b class="plain-font">Purge: {game_log[p]["purged_count"][t]}</b>', unsafe_allow_html=True)
 
-                hands = st.session_state.game_data['Game Log'][0]['player_hand']
-                player_boards = st.session_state.game_data['Game Log'][0][player]['board']
-                opponent_boards = st.session_state.game_data['Game Log'][0][opponent]['board']
+                hands = [[x for x in ls if len(x) != 0] for ls in st.session_state.game_data['Game Log'][0]['player_hand']]
+                player_boards = [[x for x in ls if len(x) != 0] for ls in st.session_state.game_data['Game Log'][0][player]['board']]
+                opponent_boards = [[x for x in ls if len(x) != 0] for ls in st.session_state.game_data['Game Log'][0][opponent]['board']]
                 if 'artifacts' in st.session_state.game_data['Game Log'][0][player]:
-                    player_artifacts = st.session_state.game_data['Game Log'][0][player]['artifacts']
-                    opponent_artifacts = st.session_state.game_data['Game Log'][0][opponent]['artifacts']
+                    player_artifacts = [[x for x in ls if len(x) != 0] for ls in st.session_state.game_data['Game Log'][0][player]['artifacts']]
+                    opponent_artifacts = [[x for x in ls if len(x) != 0] for ls in st.session_state.game_data['Game Log'][0][opponent]['artifacts']]
                 else:
                     player_artifacts = [[] for _ in range(len(player_boards))]
                     opponent_artifacts = [[] for _ in range(len(opponent_boards))]
+
                 cards_played = st.session_state.game_data['Game Log'][0][p]['individual_cards_played']
                 cards_played_turn = cards_played[t]
                 if t < 2:
@@ -479,7 +506,7 @@ else:
                 remove_chars = "[]æ””“*!,.-…’'éĕŏăŭĭ\""
 
                 if p == player:
-                    st.subheader("Player Hand")
+                    st.markdown(f'<b class="plain-font">Player Hand</b>', unsafe_allow_html=True)
                     cols = st.columns(max(11, len(hands[max(t-1, 0)])))
 
                     for i, card in enumerate(hands[max(t-1, 0)]):
@@ -504,8 +531,8 @@ else:
                         card_split_ratio = 11-sum(new_cards_discarded.values())
 
                     c1, c2 = st.columns([card_split_ratio, 11-card_split_ratio])
-                    c1.subheader("Cards Played")
-                    c2.subheader("Discards")
+                    c1.markdown(f'<b class="plain-font">Cards Played</b>', unsafe_allow_html=True)
+                    c2.markdown(f'<b class="plain-font">Discards</b>', unsafe_allow_html=True)
 
                     cols = st.columns(11)
                     last_column = 0
@@ -541,7 +568,7 @@ else:
                             else:
                                 last_column = card_split_ratio
                 if sum(new_cards_played.values()) > 0 and (sum(new_cards_played.values()) + sum(new_cards_discarded.values()) > 10 or sum(new_cards_discarded.values()) == 0):
-                    st.subheader("Cards Played")
+                    st.markdown(f'<b class="plain-font">Cards Played</b>', unsafe_allow_html=True)
 
                     cols = st.columns(11)
                     last_column = 0
@@ -562,7 +589,7 @@ else:
                                 last_column = 0
 
                 if sum(new_cards_discarded.values()) > 0 and (sum(new_cards_played.values()) + sum(new_cards_discarded.values()) > 10 or sum(new_cards_played.values()) == 0):
-                    st.subheader("Discards")
+                    st.markdown(f'<b class="plain-font">Discards</b>', unsafe_allow_html=True)
 
                     cols = st.columns(11)
                     last_column = 0
@@ -598,30 +625,127 @@ else:
                     fb_name = "Opponent Board"
                     sb_name = "Player Board"
 
-                if len(first_artifact) > 0:
-                    c_number = max(11, max(len(first_board), 2) + max(len(first_artifact), 2) + 1, max(len(second_board), 2) + max(len(second_artifact), 2) + 1)
+                if 'settings' in st.session_state and st.session_state.settings['board_layout'] == 'tco':
+                    if len(opponent_artifacts[t]) + len(opponent_boards[t]) > 0:
+                        st.markdown(f'<b class="plain-font">Opponent Board</b>', unsafe_allow_html=True)
+                    with st.container(border=True):
+                        c_number = max(11, len(opponent_boards[t]), len(opponent_artifacts[t]))
+
+                        if len(opponent_artifacts[t]) > 0:
+                            cols = st.columns(c_number)
+
+                            for i, card in enumerate(opponent_artifacts[t]):
+                                if card not in card_image_dict:
+                                    st.toast(f"Card image not found: {card}")
+                                    image_link = None
+                                else:
+                                    image_link = card_image_dict[card]
+                                    cols[i].image(image_link)
+
+                        if len(opponent_boards[t]) > 0:
+                            if len(opponent_boards[t]) % 2 == 1:
+                                cols = st.columns(c_number)
+                                if len(opponent_boards[t]) < c_number:
+                                    starting_col = 6 - (len(opponent_boards[t]) + 1) / 2
+                                else:
+                                    starting_col = 0
+                            else:
+                                if len(opponent_boards[t]) < c_number:
+                                    col_vals = [0.5] + [1 for _ in range(c_number-1)] + [0.5]
+                                    cols = st.columns(col_vals)
+                                    starting_col = 6 - (len(opponent_boards[t])) / 2
+                                else:
+                                    col_vals = [0.5] + [1 for _ in range(c_number)] + [0.5]
+                                    cols = st.columns(col_vals)
+                                    starting_col = 1
+
+                            for i, card in enumerate(opponent_boards[t]):
+                                if card not in card_image_dict:
+                                    st.toast(f"Card image not found: {card}")
+                                    image_link = None
+                                else:
+                                    image_link = card_image_dict[card]
+                                    cols[round(i+starting_col)].image(image_link)
+
+                    if len(opponent_artifacts[t]) + len(opponent_boards[t]) == 0 and len(player_artifacts[t]) + len(player_boards[t]) > 0:
+                        st.markdown(f'<b class="plain-font">Player Board</b>', unsafe_allow_html=True)
+
+                    with st.container(border=True):
+                        c_number = max(11, len(player_boards[t]), len(player_artifacts[t]))
+
+                        if len(player_boards[t]) > 0:
+                            c_number = max(11, len(player_boards[t]))
+                            if len(player_boards[t]) % 2 == 1:
+                                cols = st.columns(c_number)
+                                if len(player_boards[t]) < c_number:
+                                    starting_col = 6 - (len(player_boards[t]) + 1) / 2
+                                else:
+                                    starting_col = 0
+                            else:
+                                if len(player_boards[t]) < c_number:
+                                    col_vals = [0.5] + [1 for _ in range(c_number-1)] + [0.5]
+                                    cols = st.columns(col_vals)
+                                    starting_col = 6 - (len(player_boards[t])) / 2
+                                else:
+                                    col_vals = [0.5] + [1 for _ in range(c_number)] + [0.5]
+                                    cols = st.columns(col_vals)
+                                    starting_col = 1
+
+                            for i, card in enumerate(player_boards[t]):
+                                if card not in card_image_dict:
+                                    st.toast(f"Card image not found: {card}")
+                                    image_link = None
+                                else:
+                                    image_link = card_image_dict[card]
+                                    cols[round(i+starting_col)].image(image_link)
+
+                        if len(player_artifacts[t]) > 0:
+                            c_number = max(11, len(player_artifacts[t]))
+                            cols = st.columns(c_number)
+
+                            for i, card in enumerate(player_artifacts[t]):
+                                if card not in card_image_dict:
+                                    st.toast(f"Card image not found: {card}")
+                                    image_link = None
+                                else:
+                                    image_link = card_image_dict[card]
+                                    cols[i].image(image_link)
+
+                    if len(opponent_artifacts[t]) + len(opponent_boards[t]) > 0 and len(player_artifacts[t]) + len(player_boards[t]) > 0:
+                        st.markdown(f'<b class="plain-font">Player Board</b>', unsafe_allow_html=True)
                 else:
-                    c_number = max(11, len(first_board), len(second_board))
+                    if len(first_artifact) > 0 or len(second_artifact) > 0:
+                        c_number = max(11, max(len(first_board), 2) + max(len(first_artifact), 2) + 1, max(len(second_board), 2) + max(len(second_artifact), 2) + 1)
+                    else:
+                        c_number = max(11, len(first_board), len(second_board))
 
-                for board, artifact, b_name in zip([first_board, second_board], [first_artifact, second_artifact], [fb_name, sb_name]):
-                    c1, c2 = st.columns([c_number - max(len(artifact), 2), max(len(artifact), 2)])
-                    if len(board) > 0 or len(artifact) > 0:
-                        c1.subheader(b_name)
-                    if len(artifact) > 0:
-                        c2.subheader("Artifacts")
+                    for board, artifact, b_name in zip([first_board, second_board], [first_artifact, second_artifact], [fb_name, sb_name]):
+                        c1, c2 = st.columns([c_number - max(len(artifact), 2), max(len(artifact), 2)])
+                        if len(board) > 0 or len(artifact) > 0:
+                            c1.markdown(f'<b class="plain-font">{b_name}</b>', unsafe_allow_html=True)
+                        if len(artifact) > 0:
+                            c2.markdown(f'<b class="plain-font">Artifacts</b>', unsafe_allow_html=True)
 
-                    cols = st.columns(c_number)
+                        cols = st.columns(c_number)
 
-                    for i, card in enumerate(board):
-                        image_link = card_image_dict[card]
-                        cols[i].image(image_link)
+                        for i, card in enumerate(board):
+                            if card not in card_image_dict:
+                                st.toast(f"Card image not found: {card}")
+                                image_link = None
+                            else:
+                                image_link = card_image_dict[card]
+                                cols[i].image(image_link)
 
-                    for j, card in enumerate(artifact):
-                        image_link = card_image_dict[card]
-                        if len(artifact) == 1:
-                            cols[c_number-2].image(image_link)
-                        else:
-                            cols[c_number-len(artifact)+j].image(image_link)
+                        for j, card in enumerate(artifact):
+                            if card not in card_image_dict:
+                                st.toast(f"Card image not found: {card}")
+                                image_link = None
+                            else:
+                                image_link = card_image_dict[card]
+                                if len(artifact) == 1:
+                                    cols[c_number-2].image(image_link)
+                                else:
+                                    cols[c_number-len(artifact)+j].image(image_link)
 
                 if m_start_index is not None:
                     st.divider()

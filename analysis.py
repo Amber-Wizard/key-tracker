@@ -14,8 +14,8 @@ def get_turn_played(player_data, card_name, analysis_type='replay'):
 
 # def analyze_cards(deck_games, pilot):
 
-def analyze_deck(deck_name, pilot, graphs=True, cards=True):
-    deck_games = database.get_deck_games(pilot, deck_name)
+def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
+    deck_games = database.get_deck_games(pilot, deck_name, aliases=aliases)
     aggregate_data = {pilot: {'turns': [],
                               'cards_played': [],
                               'turn_played': [{}],
@@ -74,14 +74,15 @@ def analyze_deck(deck_name, pilot, graphs=True, cards=True):
     for idx, row in deck_games.iterrows():
         game_data = row['Game Log'][0]
         names = list(game_data.keys())
-        opponent_name = [name for name in names if name != pilot and name != 'player_hand'][0]
+        player_name = [name for name in names if name in aliases + [pilot]][0]
+        opponent_name = [name for name in names if name != player_name and name != 'player_hand'][0]
         winner = row['Winner'][0]
         first_player = row['Starting Player']
-        if first_player == pilot:
+        if first_player == player_name:
             sp_list = [False, True]
         else:
             sp_list = [True, False]
-        player_data = game_data[pilot]
+        player_data = game_data[player_name]
         opponent_data = game_data[opponent_name]
         for player, p_data, sp in zip([pilot, 'opponent'], [player_data, opponent_data], sp_list):
             for j in range(len(p_data['cards_played'])):
@@ -111,7 +112,7 @@ def analyze_deck(deck_name, pilot, graphs=True, cards=True):
             aggregate_data[player]['total_steal'][-1] += p_data['steal'][-1]
 
             for card, played in p_data['individual_cards_played'][-1].items():
-                if winner == pilot:
+                if winner == player_name:
                     card_win_dict = aggregate_data[player]['card_wins']
                 else:
                     card_win_dict = aggregate_data[player]['card_losses']

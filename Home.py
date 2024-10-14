@@ -9,6 +9,18 @@ import database
 import users
 
 
+default_settings = {
+    'icon_link': 'https://i.imgur.com/ib66iB9.png',
+    'game_data_use': True,
+    'show_decks': False,
+    'show_player': False,
+    'show_player_page': False,
+    'board_layout': 'compact',
+    'high_contrast': False,
+    'achievements': [],
+}
+
+
 try:
     st.set_page_config(
         page_title="KeyTracker",
@@ -36,19 +48,40 @@ if 'login_type' not in st.session_state:
 if 'auto_login_check' not in st.session_state:
     st.session_state.auto_login_check = False
 
+if 'settings' not in st.session_state:
+    st.session_state.settings = default_settings
 if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
     display_name = "Zenzi"
     if not st.session_state.auto_login_check:
         st.session_state.login_type = 'special'
-        st.switch_page('pages/3_Login.py')
+        st.switch_page('pages/9_Login.py')
 else:
     display_name = st.session_state.name
 
 c1, c2 = st.columns([8, 1], vertical_alignment='bottom')
 c1.title(f":blue[{display_name}'s] KeyTracker")
-# c2.image('https://i.imgur.com/8RFDrsG.png')
 
-versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0", "0.6.1", "0.7.0"]
+if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
+    login = c2.button("Login")
+    if login:
+        st.switch_page("pages/9_Login.py")
+else:
+    if 'user_info' not in st.session_state:
+        with st.spinner("Getting user info..."):
+            st.session_state.user_info = database.get_user(st.session_state.name)
+            if 'aliases' not in st.session_state.user_info:
+                st.session_state.user_info['aliases'] = []
+            for setting in ['board_layout', 'game_data_use', 'high_contrast', 'show_decks', 'show_player', 'icon_link', 'achievements']:
+                if setting in st.session_state.user_info:
+                    st.session_state.settings[setting] = st.session_state.user_info[setting]
+            if 'aliases' in st.session_state.user_info:
+                st.session_state.aliases = st.session_state.user_info['aliases']
+            else:
+                st.session_state.aliases = None
+
+    c2.image(st.session_state.settings['icon_link'])
+
+versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0", "0.6.1", "0.7.0", "0.8.0"]
 
 changes = [
     [
@@ -101,27 +134,40 @@ changes = [
         'Improved Database Connection Handling',
         "Changed 'Name' Field to 'TCO Username'",
         'Fixed Various Bugs',
+    ],
+    [
+        'Added Tokens of Change & Redemption',
+        'Added Achievements',
+        'Added Player Icons',
+        'Added Leaderboard',
+        'Added Player Page',
+        'Added Settings:',
+        ' - Board Layout',
+        ' - High Contrast Amber Charts',
+        ' - Show Decks in Leaderboard',
+        ' - Show Player Stats in Leaderboard',
+        ' - Share Aggregate Data',
     ]
 ]
 
 with st.expander(fr"$\texttt{{\color{{gray}}\Large v{versions[-1]}}}$"):
     st.divider()
     for c in changes[-1]:
-        st.write(f"-{c}")
+        if c[0] == ' ':
+            st.write(c)
+        else:
+            st.write(f"-{c}")
     for i in range(len(versions)-1):
         st.divider()
         v = versions[-2-i]
         st.write(fr"$\texttt{{\color{{gray}}\Large v{v}}}$")
         v_changes = changes[-2-i]
         for c in v_changes:
-            st.write(f"-{c}")
+            if c[0] == ' ':
+                st.write(c)
+            else:
+                st.write(f"-{c}")
 
-st.divider()
-
-if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
-    login = c2.button("Login")
-    if login:
-        st.switch_page("pages/3_Login.py")
 if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
     pass
 else:
@@ -130,18 +176,52 @@ else:
             if st.session_state.name == 'master':
                 st.session_state.game_log = database.get_all_games(trim_lists=False)
             else:
-                st.session_state.game_log = database.get_user_games(st.session_state.name)
+                st.session_state.game_log = database.get_user_games(st.session_state.name, st.session_state.aliases, trim_lists=False)
+
+    # if 'decks_elo' not in st.session_state:
+    #     with st.spinner('Getting ELO...'):
+    #         st.session_state.decks_elo = database.get_decks_elo(st.session_state.name)
+
     if 'deck_log' not in st.session_state:
         with st.spinner('Getting decks...'):
-            st.session_state.deck_log = database.get_user_decks(st.session_state.name)
+            deck_log = database.get_user_decks(st.session_state.name, st.session_state.aliases, st.session_state.game_log)
+            # deck_log['ELO'] = 1500
+            # for idx, row in deck_log.iterrows():
+            #     deck_dict = [d for d in st.session_state.decks_elo if d['deck'] == row['Deck'][0]]
+            #     if len(deck_dict) > 0:
+            #         deck_log.loc[idx, 'ELO'] = deck_dict[0]['score']
+
+            st.session_state.deck_log = deck_log
+
 if 'featured_game_log' not in st.session_state:
     with st.spinner('Getting featured games...'):
         st.session_state.featured_game_log = database.get_featured_game_log()
         display_log = st.session_state.featured_game_log
         display_log['Set'] = display_log['Set'].apply(lambda x: [x])
         display_log['Op. Set'] = display_log['Op. Set'].apply(lambda x: [x])
+
 if 'game_analysis_id' not in st.session_state:
     st.session_state.game_analysis_id = None
+
+st.write('')
+
+cols = st.columns([1, 1, 1, 3])
+
+if cols[1].button('Leaderboard'):
+    st.switch_page("pages/4_Leaderboard.py")
+
+if 'name' in st.session_state and st.session_state.name:
+    pp_disabled = False
+else:
+    pp_disabled = True
+
+if cols[0].button('Player Page', disabled=pp_disabled):
+    st.switch_page("pages/3_Player_Page.py")
+
+# cols[2].button('Meta Snapshot', disabled=True)
+
+
+st.divider()
 
 st.subheader("Featured Games")
 with st.expander("Select Game"):

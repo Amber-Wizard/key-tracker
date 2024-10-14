@@ -5,6 +5,7 @@ import numpy as np
 import database
 import graphing
 import analysis
+import dok_api
 
 house_dict = graphing.house_dict
 
@@ -104,6 +105,10 @@ st.markdown("""
     font-size: 28px !important;
     color: #f1ebd2 !important;
 }
+.ToC-font {
+    font-size: 28px !important;
+    color: #ea2e46 !important;
+}
 .VM23-font {
     font-size: 28px !important;
     color: #838383 !important;
@@ -175,8 +180,12 @@ if 'share_id' in st.session_state and 'elo_data' not in st.session_state:
 if 'deck_games' not in st.session_state:
     pilot = st.session_state.pilot
     deck = st.session_state.deck
+    with st.spinner('Getting pilot info...'):
+        st.session_state.pilot_info = database.get_user(pilot)
+        if 'aliases' not in st.session_state.pilot_info:
+            st.session_state.pilot_info['aliases'] = []
     with st.spinner('Getting deck games...'):
-        deck_games = database.get_deck_games(pilot, deck, trim_lists=True)
+        deck_games = database.get_deck_games(pilot, deck, aliases=st.session_state.aliases, trim_lists=True)
     with st.spinner('Processing games...'):
         st.session_state.deck_games = deck_games
         deck_games['Opponent Deck ID'] = deck_games['Opponent Deck Link'].str.split('/').str[-1]
@@ -189,7 +198,7 @@ if 'deck_games' not in st.session_state:
         set_winrate_df = deck_games.groupby('Opponent Set').size().reset_index(name='Count')
 
         # Vectorized 'Wins' calculation
-        set_winrate_df['Wins'] = deck_games.groupby('Opponent Set').apply(lambda x: (x['Winner'] == pilot).sum()).reset_index(drop=True)
+        set_winrate_df['Wins'] = deck_games.groupby('Opponent Set').apply(lambda x: (x['Winner'].isin(st.session_state.pilot_info['aliases'] + [pilot])).sum()).reset_index(drop=True)
 
         # Calculate winrate in a vectorized way
         set_winrate_df['Winrate'] = (100 * set_winrate_df['Wins'] / set_winrate_df['Count']).round(0).astype(int)
@@ -206,7 +215,7 @@ if 'deck_games' not in st.session_state:
         house_winrate_df = expanded_deck_games.groupby('Opponent Houses').size().reset_index(name='Count')
 
         # Calculate the number of wins for each house
-        house_winrate_df['Wins'] = expanded_deck_games.groupby('Opponent Houses').apply(lambda x: (x['Winner'] == pilot).sum()).reset_index(drop=True)
+        house_winrate_df['Wins'] = expanded_deck_games.groupby('Opponent Houses').apply(lambda x: (x['Winner'].isin(st.session_state.pilot_info['aliases'] + [pilot])).sum()).reset_index(drop=True)
 
         # Calculate winrate for each house
         house_winrate_df['Winrate'] = (100 * house_winrate_df['Wins'] / house_winrate_df['Count']).round(0).astype(int)
@@ -215,20 +224,31 @@ if 'deck_games' not in st.session_state:
 
 
 if 'deck_selection' not in st.session_state:
+    pilot = st.session_state.pilot
     deck_games = st.session_state.deck_games
     deck_link = st.session_state.deck_games['Deck Link'].iat[0]
-    wins = (deck_games['Winner'] == st.session_state.pilot).sum()
+    wins = (deck_games['Winner'].isin(st.session_state.pilot_info['aliases'] + [pilot])).sum()
     games = len(deck_games)
     losses = games - wins
     winrate = round(100 * wins / games)
 
+    st.session_state.wins = wins
+    st.session_state.games = games
+    st.session_state.losses = losses
+    st.session_state.winrate = winrate
+
 
 def pull_deck_data(d, p, c=False):
+    st.session_state.deck_data_compare = None
+    st.session_state.compare_deck = None
+    st.session_state.compare_deck_link = None
     print(f"Pulling deck data for deck {d} ({p})")
     if c:
-        st.session_state.deck_data_compare = analysis.analyze_deck(d, p)
+        st.session_state.deck_data_compare = analysis.analyze_deck(d, p, aliases=st.session_state.pilot_info['aliases'])
     else:
-        st.session_state.deck_data = analysis.analyze_deck(d, p)
+        if 'aliases' not in st.session_state.user_info:
+            st.session_state.user_info['aliases'] = []
+        st.session_state.deck_data = analysis.analyze_deck(d, p, aliases=st.session_state.user_info['aliases'])
 
 
 if 'deck_data' not in st.session_state:
@@ -242,7 +262,7 @@ else:
     deck = st.session_state.deck
     score = st.session_state.score
     c1, c2, c3, c4 = st.columns([22, 1, 1, 1])
-    if 'name' in st.session_state and st.session_state.name == pilot:
+    if 'name' in st.session_state and (st.session_state.name == pilot or 'aliases' in st.session_state and pilot in st.session_state.aliases):
         pass
     else:
         c1.markdown(f'<b class="pilot-font">{pilot}</b>', unsafe_allow_html=True)
@@ -259,7 +279,11 @@ else:
             deck_log = st.session_state.deck_log
         else:
             with st.spinner('Getting decks...'):
-                deck_log = database.get_user_decks(st.session_state.name)
+                if 'game_log' in st.session_state:
+                    deck_log = database.get_user_decks(st.session_state.name, aliases=st.session_state.aliases, game_data=st.session_state.game_log)
+                else:
+                    deck_log = database.get_user_decks(st.session_state.name, aliases=st.session_state.aliases)
+
                 st.session_state.deck_log = deck_log
         deck_log = deck_log[deck_log['Deck'].apply(lambda x: x[0] != deck)]
         if len(deck_log) > 0:
@@ -272,9 +296,12 @@ else:
                     if len(compare_choice['selection']['rows']) == 0:
                         st.error("No deck selected")
                     else:
+                        st.session_state.deck_data_compare = None
+                        st.session_state.compare_deck = None
+                        st.session_state.compare_deck_link = None
                         deck_choice = deck_log.iloc[compare_choice['selection']['rows'][0]]
                         compare_deck = deck_choice['Deck'][0]
-                        compare_deck_link = deck_choice['Deck Link'][0]
+                        compare_deck_link = deck_choice['Deck Link']
                         pull_deck_data(compare_deck, pilot, True)
                         if 'compare_games' not in st.session_state:
                             st.session_state.compare_games = deck_choice['Games']
@@ -287,61 +314,72 @@ else:
                     st.session_state.compare_deck_link = None
     if 'compare_deck' in st.session_state and st.session_state.compare_deck:
         st.write('')
-        c1, c2 = st.columns([7, 1])
+        c1, c2 = st.columns([7, 1], vertical_alignment='bottom')
         c1.markdown(f'<b class="compare-deck-font">{st.session_state.compare_deck} (C)</b>', unsafe_allow_html=True)
         c2.link_button("Deck Info", st.session_state.compare_deck_link)
 
     st.divider()
-    c1, c2, c3, c4 = st.columns(4)
-    c1.subheader("Games")
-    c2.subheader("Win-Loss")
-    c3.subheader("Winrate")
-    c4.subheader("ELO")
-    c1.markdown(f'<b class="plain-font">{games}</b>', unsafe_allow_html=True)
-    c2.markdown(f'<b class="hero-font">{wins}</b><b class="plain-font">-</b><b class="villain-font">{losses}</b>', unsafe_allow_html=True)
-    if winrate >= 50:
-        c3.markdown(f'<b class="hero-font">{winrate}%</b>', unsafe_allow_html=True)
-    elif winrate < 50:
-        c3.markdown(f'<b class="villain-font">{winrate}%</b>', unsafe_allow_html=True)
-    if score:
-        if score >= 1500:
-            c4.markdown(f'<b class="hero-font">{score}</b>', unsafe_allow_html=True)
-        elif score < 1500:
-            c4.markdown(f'<b class="villain-font">{score}</b>', unsafe_allow_html=True)
+
+    with st.container(border=True):
+
+        wins = st.session_state.wins
+        losses = st.session_state.losses
+        games = st.session_state.games
+        winrate = st.session_state.winrate
+
+        c0, c1, c2, c3, c4 = st.columns([0.6, 1, 1, 1, 1])
+        c1.subheader("Games")
+        c2.subheader("Win-Loss")
+        c3.subheader("Winrate")
+        c4.subheader("ELO")
+        c1.markdown(f'<b class="plain-font">  {games}</b>', unsafe_allow_html=True)
+        c2.markdown(f'<b class="hero-font">  {wins}</b><b class="plain-font">-</b><b class="villain-font">{losses}</b>', unsafe_allow_html=True)
+        if winrate >= 50:
+            c3.markdown(f'<b class="hero-font">   {winrate}%</b>', unsafe_allow_html=True)
+        elif winrate < 50:
+            c3.markdown(f'<b class="villain-font">   {winrate}%</b>', unsafe_allow_html=True)
+        if score:
+            if score >= 1500:
+                c4.markdown(f'<b class="hero-font">{score}</b>', unsafe_allow_html=True)
+            elif score < 1500:
+                c4.markdown(f'<b class="villain-font">{score}</b>', unsafe_allow_html=True)
     st.write(' ')
     st.write(' ')
-    sets = ['CotA', 'AoA', 'WC', 'MM', 'DT', 'WoE', 'GR', 'AES', 'ToC', 'VM23', 'VM24']
-    set_winrate_df = st.session_state.set_winrate_df
-    cols = st.columns(max(len(set_winrate_df), 4))
-    col_num = 0
-    for s in sets:
-        if s in set_winrate_df['Opponent Set'].values:
-            cols[col_num].markdown(f'<b class ="{s}-font">vs {s}</b>', unsafe_allow_html=True)
-            set_winrate = set_winrate_df.loc[set_winrate_df['Opponent Set'] == s, 'Winrate'].iat[0]
-            set_games = set_winrate_df.loc[set_winrate_df['Opponent Set'] == s, 'Count'].iat[0]
-            if set_winrate >= 50:
-                cols[col_num].markdown(f'<b class="hero-font">{set_winrate}% {set_games}</b>', unsafe_allow_html=True)
-            elif set_winrate < 50:
-                cols[col_num].markdown(f'<b class="villain-font">{set_winrate}% {set_games}</b>', unsafe_allow_html=True)
-            col_num += 1
+    with st.container(border=True):
+        sets = ['CotA', 'AoA', 'WC', 'MM', 'DT', 'WoE', 'GR', 'AES', 'ToC', 'VM23', 'VM24']
+        set_winrate_df = st.session_state.set_winrate_df
+        cols = st.columns([0.25] + [1 for i in range(max(len(set_winrate_df), 4))])
+        col_num = 1
+        for s in sets:
+            if s in set_winrate_df['Opponent Set'].values:
+                cols[col_num].markdown(f'<b class ="{s}-font">vs {s}</b>', unsafe_allow_html=True)
+                set_winrate = set_winrate_df.loc[set_winrate_df['Opponent Set'] == s, 'Winrate'].iat[0]
+                set_games = set_winrate_df.loc[set_winrate_df['Opponent Set'] == s, 'Count'].iat[0]
+                if set_winrate >= 50:
+                    cols[col_num].markdown(f'<b class="hero-font">{set_winrate}% {set_games}</b>', unsafe_allow_html=True)
+                elif set_winrate < 50:
+                    cols[col_num].markdown(f'<b class="villain-font">{set_winrate}% {set_games}</b>', unsafe_allow_html=True)
+                col_num += 1
 
     st.write(' ')
     st.write(' ')
-    house_winrate_df = st.session_state.house_winrate_df
-    cols = st.columns(7)
-    col_num = 0
-    for h in house_dict:
-        if h in house_winrate_df['Opponent Houses'].values:
-            cols[col_num].image(house_dict[h]['Image'])
-            house_winrate = house_winrate_df.loc[house_winrate_df['Opponent Houses'] == h, 'Winrate'].iat[0]
-            house_games = house_winrate_df.loc[house_winrate_df['Opponent Houses'] == h, 'Count'].iat[0]
-            if house_winrate >= 50:
-                cols[col_num].markdown(f'<b class="hero-font"> {house_winrate}% {house_games}</b>', unsafe_allow_html=True)
-            elif house_winrate < 50:
-                cols[col_num].markdown(f'<b class="villain-font"> {house_winrate}% {house_games}</b>', unsafe_allow_html=True)
-            col_num += 1
-            if col_num > 6:
-                col_num = 0
+    with st.container(border=True):
+        st.write(' ')
+        house_winrate_df = st.session_state.house_winrate_df
+        cols = st.columns([0.25, 1, 1, 1, 1, 1, 1, 1])
+        col_num = 1
+        for h in house_dict:
+            if h in house_winrate_df['Opponent Houses'].values:
+                cols[col_num].image(house_dict[h]['Image'])
+                house_winrate = house_winrate_df.loc[house_winrate_df['Opponent Houses'] == h, 'Winrate'].iat[0]
+                house_games = house_winrate_df.loc[house_winrate_df['Opponent Houses'] == h, 'Count'].iat[0]
+                if house_winrate >= 50:
+                    cols[col_num].markdown(f'<b class="hero-font"> {house_winrate}% {house_games}</b>', unsafe_allow_html=True)
+                elif house_winrate < 50:
+                    cols[col_num].markdown(f'<b class="villain-font"> {house_winrate}% {house_games}</b>', unsafe_allow_html=True)
+                col_num += 1
+                if col_num > 7:
+                    col_num = 1
 
     st.write(' ')
     st.write(' ')
@@ -593,9 +631,7 @@ else:
         exp_button_string = "Expand All"
     c2.button(exp_button_string, on_click=expand_turns)
 
-    remove_chars = "[]æ””“*!,.-…’'éĕŏăŭĭ\""
-    link_base = "https://keyforge-card-images.s3-us-west-2.amazonaws.com/card-imgs/"
-    translation_table = str.maketrans('', '', remove_chars)
+    card_image_dict = dok_api.card_df.set_index('cardTitle')['cardTitleUrl'].to_dict()
 
     for t, cards_played in enumerate(st.session_state.deck_data[pilot]['individual_cards_played']):
 
@@ -616,8 +652,14 @@ else:
                     card_name = card_row['Card']
                     frequency = round(card_row['Relative Frequency'] * 100)
                     frequency_string = f"   {frequency}%"
-                    link_name = card_name.lower().translate(translation_table).replace(' ', '-')
-                    image_link = f"{link_base}{link_name}.png"
-                    cols[i].image(image_link)
+                    if card_name not in card_image_dict:
+                        st.toast(f"Card image not found: {card_name}")
+                        image_link = None
+                    else:
+                        image_link = card_image_dict[card_name]
+                        try:
+                            cols[i].image(image_link)
+                        except:
+                            st.toast(f"Error getting card image: {image_link}")
                     cols[i].markdown(f'<b class="plain-italic-font">{frequency_string}</b>', unsafe_allow_html=True)
 

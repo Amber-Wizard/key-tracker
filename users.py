@@ -23,6 +23,10 @@ def new_user(username, password, email, tco_name):
     if tco_name in user_df['tco_name'].values:
         return "Error", "TCO name already exists"
 
+    if 'aliases' in user_df:
+        if user_df['aliases'].apply(lambda lst: isinstance(lst, list) and tco_name in lst).any():
+            return "Error", "TCO name already exists"
+
     database.add_user(username, password, email, tco_name)
 
     return "Success", "Account successfully registered"

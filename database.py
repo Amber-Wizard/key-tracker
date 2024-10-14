@@ -58,12 +58,58 @@ def delete_user(username):
 
 def get_user(tco_name):
     db = get_database('Users')
-    return db.find_one({'tco_name': tco_name})
+    user = db.find_one({'tco_name': tco_name})
+
+    if not user:
+        user = db.find_one({'aliases': {'$in': [tco_name]}})
+
+    return user
 
 
 def get_all_users():
     db = get_database('Users')
     return db.find()
+
+
+def update_user_settings(player, settings):
+    db = get_database('Users')
+    query = {'tco_name': player}
+    update_data = {'$set': settings}
+    inserted_result = db.update_one(query, update_data, upsert=False)
+
+    return inserted_result
+
+
+def check_name(tco_name):
+    users = get_all_users()
+    user_df = to_dataframe(users)
+
+    if tco_name in user_df['tco_name'].values:
+        return False
+
+    if 'aliases' in user_df:
+        if user_df['aliases'].apply(lambda lst: isinstance(lst, list) and tco_name in lst).any():
+            return False
+
+    return True
+
+
+def add_alias(player, alias):
+    if check_name(alias):
+        db = get_database('Users')
+        query = {'tco_name': player}
+        player_info = db.find_one(query)
+        if 'aliases' in player_info:
+            new_aliases = player_info['aliases'] + [alias]
+        else:
+            new_aliases = [alias]
+
+        update_data = {'$set': {'aliases': new_aliases}}
+        inserted_result = db.update_one(query, update_data, upsert=False)
+
+        return inserted_result
+    else:
+        return None
 
 
 def log_game(data):
@@ -99,17 +145,23 @@ def update_game_decks(gid, deck, deck_link, player=True):
         return False
 
 
-def get_user_games(username, trim_lists=False):
+def get_user_games(username, aliases=None, trim_lists=False):
     db = get_database('Games')
     data = db.find({'Player': username})
     df = to_dataframe(data)
+
+    if aliases:
+        for alias in aliases:
+            alias_data = db.find({'Player': alias})
+            alias_df = to_dataframe(alias_data)
+            if len(alias_df) > 0:
+                df = pd.concat([df, alias_df], ignore_index=True)
+
     if len(df) > 0:
         sorted_df = df.sort_values(by='Date', ascending=False)
         if 'Format' in sorted_df.columns:
-            # If 'Format' exists, apply the transformation
             sorted_df['Format'] = sorted_df['Format'].apply(lambda x: x if isinstance(x, list) else ['Archon'])
         else:
-            # If 'Format' does not exist, create it and fill with ['Archon']
             sorted_df['Format'] = [['Archon']] * len(sorted_df)
         if trim_lists:
             sorted_df = sorted_df.applymap(lambda x: x[0] if isinstance(x, list) and len(x) == 1 else x)
@@ -133,10 +185,22 @@ def get_all_games(trim_lists=True):
         return None
 
 
-def get_deck_games(username, deck, trim_lists=False):
+def get_deck_games(username, deck, aliases=None, trim_lists=False):
+    print(f"Getting Deck Games: {username}, {deck}, {aliases}")
     db = get_database('Games')
     data = db.find({'Player': username, 'Deck': deck})
     df = to_dataframe(data)
+
+    if aliases:
+        for name in aliases:
+            data = db.find({'Player': name, 'Deck': deck})
+            new_df = to_dataframe(data)
+            if len(new_df) > 0:
+                if len(df) > 0:
+                    df = pd.concat([df, new_df], ignore_index=True)
+                else:
+                    df = new_df
+
     if len(df) > 0:
         sorted_df = df.sort_values(by='Date', ascending=False)
         if trim_lists:
@@ -204,8 +268,16 @@ def update_dok_data(deck_id):
     return inserted_document
 
 
-def get_user_decks(username):
-    user_games = get_user_games(username)
+def get_user_decks(username, aliases=None, game_data=None):
+    if aliases:
+        name_list = [username] + aliases
+    else:
+        name_list = [username]
+
+    if game_data is not None:
+        user_games = game_data
+    else:
+        user_games = get_user_games(username, aliases=aliases)
     if user_games is not None and len(user_games) > 1:
         games_counts = pd.Series([item[0] for item in user_games['Deck']]).value_counts()
         user_decks = games_counts.reset_index()
@@ -228,10 +300,15 @@ def get_user_decks(username):
         wl = []
         winrates = []
         for idx, row in user_decks.iterrows():
-            deck_games = user_games[(user_games['Deck'].apply(lambda x: x[0]) == row['Deck']) & (user_games['Player'].apply(lambda x: x[0]) == username)]
-            deck_wins = len(deck_games[deck_games['Winner'].apply(lambda x: x[0]) == username])
+            deck_games = user_games[(user_games['Deck'].apply(lambda x: x[0]) == row['Deck']) & (user_games['Player'].apply(lambda x: x[0] in name_list))]
+
+            deck_wins = len(deck_games[deck_games['Winner'].apply(lambda x: x[0] in name_list)])
+
             deck_losses = len(deck_games) - deck_wins
-            winrate = round(100 * deck_wins / len(deck_games))
+            if len(deck_games) > 0:
+                winrate = round(100 * deck_wins / len(deck_games))
+            else:
+                winrate = None
             wins.append(deck_wins)
             losses.append(deck_losses)
             wl.append(f"{deck_wins}-{deck_losses}")
@@ -248,19 +325,19 @@ def get_user_decks(username):
         return None
 
 
-def update_elo(player, deck, score):
+def update_elo(player, deck, deck_data):
     db = get_database('ELO')
     query = {'player': player, 'deck': deck}
-    update_data = {'$set': {'player': player, 'deck': deck, 'score': score}}
+    update_data = {'$set': {'player': player, 'deck': deck, 'score': deck_data['score'], 'games': deck_data['games'], 'wins': deck_data['wins']}}
     inserted_result = db.update_one(query, update_data, upsert=True)
 
     return inserted_result
 
 
-def update_player_elo(player, score, games):
+def update_player_elo(player, elo_data):
     db = get_database('Users')
     query = {'tco_name': player}
-    update_data = {'$set': {'score': score, 'games': games}}
+    update_data = {'$set': {'score': elo_data['score'], 'games': elo_data['games'], 'wins': elo_data['wins']}}
     inserted_result = db.update_one(query, update_data, upsert=False)
 
     return inserted_result
@@ -271,13 +348,20 @@ def get_all_elo():
     return db.find()
 
 
+def get_decks_elo(player):
+    db = get_database('ELO')
+    data = db.find({'player': player})
+    print(data)
+    return data
+
+
 def get_elo(player, deck):
     db = get_database('ELO')
     query = {'player': player, 'deck': deck}
     data = db.find_one(query)
 
     if not data:
-        update_result = update_elo(player, deck, 1500)
+        update_result = update_elo(player, deck, {'score': 1500, 'games': 0, 'wins': 0})
 
         data = {
             '_id': update_result.upserted_id,  # This will contain the ID of the newly created document
@@ -311,13 +395,13 @@ def calculate_elo(starting_value, k_value):
     player_elo_dict = {}
     opponent_elo_dict = {}
     for p in players:
-        player_elo_dict[p] = {'score': starting_value, 'games': 0, 'decks': {}}
+        player_elo_dict[p] = {'score': starting_value, 'games': 0, 'wins': 0, 'decks': {}}
         decks = games.loc[games['Player'] == p, 'Deck'].unique()
-        player_elo_dict[p]['decks'] = {d: starting_value for d in decks}
+        player_elo_dict[p]['decks'] = {d: {'score': starting_value, 'games': 0, 'wins': 0} for d in decks}
     for o in opponents:
-        opponent_elo_dict[o] = {'score': starting_value, 'games': 0, 'decks': {}}
+        opponent_elo_dict[o] = {'score': starting_value, 'decks': {}}
         decks = games.loc[games['Opponent'] == o, 'Opponent Deck'].unique()
-        opponent_elo_dict[o]['decks'] = {d: starting_value for d in decks}
+        opponent_elo_dict[o]['decks'] = {d: {'score': starting_value} for d in decks}
 
     for idx, game in games.iterrows():
         player = game['Player']
@@ -328,34 +412,37 @@ def calculate_elo(starting_value, k_value):
         p1_expected = 1 / (1 + 10**((opponent_elo_dict[opponent]['score'] - player_elo_dict[player]['score'])/400))
         p2_expected = 1 - p1_expected
 
-        p1_deck_expected = 1 / (1 + 10**((opponent_elo_dict[opponent]['decks'][op_deck] - player_elo_dict[player]['decks'][p_deck])/400))
+        p1_deck_expected = 1 / (1 + 10**((opponent_elo_dict[opponent]['decks'][op_deck]['score'] - player_elo_dict[player]['decks'][p_deck]['score'])/400))
         p2_deck_expected = 1 - p1_deck_expected
 
         player_elo_dict[player]['games'] += 1
+        player_elo_dict[player]['decks'][p_deck]['games'] += 1
 
         if game['Winner'] == player:
             player_adjustment = round(k_value * p2_expected)
             deck_adjustment = round(k_value * p2_deck_expected)
             player_elo_dict[player]['score'] += player_adjustment
             opponent_elo_dict[opponent]['score'] -= player_adjustment
-            player_elo_dict[player]['decks'][p_deck] += deck_adjustment
-            opponent_elo_dict[opponent]['decks'][op_deck] -= deck_adjustment
+            player_elo_dict[player]['decks'][p_deck]['score'] += deck_adjustment
+            opponent_elo_dict[opponent]['decks'][op_deck]['score'] -= deck_adjustment
+            player_elo_dict[player]['wins'] += 1
+            player_elo_dict[player]['decks'][p_deck]['wins'] += 1
         else:
             player_adjustment = round(k_value * p1_expected)
             deck_adjustment = round(k_value * p1_deck_expected)
             player_elo_dict[player]['score'] -= player_adjustment
             opponent_elo_dict[opponent]['score'] += player_adjustment
-            player_elo_dict[player]['decks'][p_deck] -= deck_adjustment
-            opponent_elo_dict[opponent]['decks'][op_deck] += deck_adjustment
+            player_elo_dict[player]['decks'][p_deck]['score'] -= deck_adjustment
+            opponent_elo_dict[opponent]['decks'][op_deck]['score'] += deck_adjustment
 
         print(f"Game {idx} calculated")
 
     for p in player_elo_dict.keys():
-        print(f"{p}: {round(player_elo_dict[p]['score'])}")
-        update_player_elo(p, player_elo_dict[p]['score'], player_elo_dict[p]['games'])
+        print(f"{p}: {player_elo_dict[p]['score']}")
+        update_player_elo(p, player_elo_dict[p])
         for d in player_elo_dict[p]['decks'].keys():
-            print(f"    {d}: {round(player_elo_dict[p]['decks'][d])}")
-            update_elo(p, d, round(player_elo_dict[p]['decks'][d]))
+            print(f"    {d}: {player_elo_dict[p]['decks'][d]}")
+            update_elo(p, d, player_elo_dict[p]['decks'][d])
         print('')
 
 

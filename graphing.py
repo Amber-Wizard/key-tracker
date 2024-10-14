@@ -20,6 +20,7 @@ house_colors = {
     "saurian": (232, 194, 60),
     "geistoid": (115, 75, 136),
     "skyborn": (241, 235, 210),
+    "redemption": (212, 39, 52),
 }
 
 
@@ -76,6 +77,10 @@ house_dict = {
         'Image': 'https://archonarcana.com/images/0/06/Skyborn.png',
         'Color': '#000000'
     },
+    'Redemption': {
+        'Image': 'https://decksofkeyforge.com/static/media/redemption.89858e305d408ad683ca.png',
+        'Color': '#000000'
+    }
 }
 
 
@@ -227,23 +232,23 @@ def calculate_ex_amber(player_data, opponent_data, first_player, opponent_name, 
     return player_exa, op_exa, 1-op_def_adj, 1-p_def_adj
 
 
-def analyze_deck(username, log, games):
+def analyze_deck(username, log, games, high_contrast=False):
     player_data = log[username]
     opponent_data = log['opponent']
 
-    deck_analysis_data = create_deck_analysis_graphs(player_data, username, opponent_data, 'opponent', games)
+    deck_analysis_data = create_deck_analysis_graphs(player_data, username, opponent_data, 'opponent', games, high_contrast)
 
     return deck_analysis_data
 
 
-def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_name, games):
+def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_name, games, high_contrast=False):
     player_tav, opponent_tav, p_amber_gained, op_amber_gained, p_amber_defense, op_amber_defense = calculate_tav(player_data, opponent_data)
     player_ttw, player_delta, player_reap_rate = calculate_ttw(player_tav, player_data, op_amber_defense[-1])
     opponent_ttw, opponent_delta, opponent_reap_rate = calculate_ttw(opponent_tav, opponent_data, p_amber_defense[-1])
-    values = [player_data['total_steal'][-1], player_data['total_amber_reaped'][-1], player_data['total_amber_icons'][-1], player_data['total_amber_effect'][-1]]
-    player_amber_sources = amber_sources(values, username, 'replay')
-    values = [opponent_data['total_steal'][-1], opponent_data['total_amber_reaped'][-1], opponent_data['total_amber_icons'][-1], opponent_data['total_amber_effect'][-1]]
-    opponent_amber_sources = amber_sources(values, opponent_name, 'replay')
+    values = [player_data['total_amber_effect'][-1], player_data['total_steal'][-1], player_data['total_amber_reaped'][-1], player_data['total_amber_icons'][-1]]
+    player_amber_sources = amber_sources(values, username, 'replay', contrast=high_contrast)
+    values = [opponent_data['total_amber_effect'][-1], opponent_data['total_steal'][-1], opponent_data['total_amber_reaped'][-1], opponent_data['total_amber_icons'][-1]]
+    opponent_amber_sources = amber_sources(values, opponent_name, 'replay', contrast=high_contrast)
     player_house_calls = house_calls(player_data, username, games, 'replay')
     opponent_house_calls = house_calls(opponent_data, opponent_name, games, 'replay')
     player_card_data = get_card_information(player_data, analysis_type='Deck')
@@ -344,8 +349,12 @@ def calculate_survival_rate(player_data, player_second=True):
             survival_rates.append(survival_rate)
             survival_rates.append(survival_rate)
 
-    for _ in range(len(player_data['creatures']) - len(survival_rates)):
-        survival_rates.append(survival_rates[-1])
+    if len(survival_rates) > 0:
+        for _ in range(len(player_data['creatures']) - len(survival_rates)):
+            survival_rates.append(survival_rates[-1])
+    else:
+        for _ in range(len(player_data['creatures'])):
+            survival_rates.append(None)
 
     return survival_rates, survives, deaths, individual_survival_rates, individual_survives, individual_deaths
 
@@ -396,7 +405,7 @@ def calculate_survival_rate(player_data, player_second=True):
 #     return survival_rates
 
 
-def analyze_game(username, game_data):
+def analyze_game(username, game_data, high_contrast=False):
 
     log = game_data['Game Log'][0]
     player_data = log[username]
@@ -404,19 +413,19 @@ def analyze_game(username, game_data):
 
     opponent_name = [n for n in log.keys() if n != username and n != 'player_hand'][0]
     opponent_data = log[opponent_name]
-    game_analysis_data = create_game_analysis_graphs(player_data, username, opponent_data, opponent_name, first_player)
+    game_analysis_data = create_game_analysis_graphs(player_data, username, opponent_data, opponent_name, first_player, high_contrast)
 
     return game_analysis_data
 
 
-def create_game_analysis_graphs(player_data, username, opponent_data, opponent_name, first_player):
+def create_game_analysis_graphs(player_data, username, opponent_data, opponent_name, first_player, high_contrast=False):
     player_tav, opponent_tav, p_amber_gained, op_amber_gained, p_amber_defense, op_amber_defense = calculate_tav(player_data, opponent_data)
     player_ttw, player_delta, player_reap_rate = calculate_ttw(player_tav, player_data, op_amber_defense[-1])
     opponent_ttw, opponent_delta, opponent_reap_rate = calculate_ttw(opponent_tav, opponent_data, p_amber_defense[-1])
     values = [player_data['steal'][-1], player_data['amber_reaped'][-1], player_data['amber_icons'][-1], player_data['amber_effect'][-1]]
-    player_amber_sources = amber_sources(values, username, 'replay')
+    player_amber_sources = amber_sources(values, username, 'replay', high_contrast)
     values = [opponent_data['steal'][-1], opponent_data['amber_reaped'][-1], opponent_data['amber_icons'][-1], opponent_data['amber_effect'][-1]]
-    opponent_amber_sources = amber_sources(values, opponent_name, 'replay')
+    opponent_amber_sources = amber_sources(values, opponent_name, 'replay', high_contrast)
     player_house_calls = house_calls(player_data, username, 1, 'replay')
     opponent_house_calls = house_calls(opponent_data, opponent_name, 1, 'replay')
     if first_player == username:
@@ -511,16 +520,19 @@ def cards_played(player_cards, opponent_cards, opponent_name, save):
     fig.write_image(f"images/cards_played_{save}.png", scale=10)  # save to .png file
 
 
-def amber_sources(values, name, save):
+def amber_sources(values, name, save, contrast=False):
     layout = go.Layout(
         paper_bgcolor='rgb(14, 17, 23)',  # set chart background color
         title={'font': {'color': 'rgb(225,235,235)'}},  # set title font color
         legend={'font': {'color': 'rgb(225,235,235)'}}  # set legend font color
     )
 
-    colors = [f'rgb({255-30*(3-x)/4},{235-50*(3-x)/4},{135-135*(3-x)/4})' for x in range(4)]
+    if contrast:
+        colors = None
+    else:
+        colors = [f'rgb({255-30*(3-x)/4},{235-50*(3-x)/4},{135-135*(3-x)/4})' for x in [1, 0, 3, 2]]
 
-    labels = ['Steal', 'Reaps', 'Icons', 'Effects']
+    labels = ['Effects', 'Steal', 'Reaps', 'Icons']
 
     fig = go.Figure(data=go.Pie(labels=labels, values=values, marker=dict(colors=colors, line=dict(color='rgb(15,25,25)', width=5))), layout=layout)  # make chart object
     fig.update_traces(textposition='inside', textinfo='value+percent+label')
