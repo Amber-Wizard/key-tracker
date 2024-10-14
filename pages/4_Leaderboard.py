@@ -97,7 +97,6 @@ hide_streamlit_style = """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 
-@st.cache_resource
 def get_all_elo_scores():
     with st.spinner('Getting ELO data...'):
         user_scores = database.get_all_users()
@@ -108,7 +107,7 @@ def get_all_elo_scores():
         st.session_state.deck_scores = [i for i in deck_scores if 'games' in i and 'wins' in i and i['games'] > 0]
 
 
-get_all_elo_scores()
+# get_all_elo_scores()
 
 
 c1, c2, c3, c4 = st.columns([22, 1, 1, 1])
@@ -124,8 +123,12 @@ sort_by = c2.selectbox('Sort', options=['Score', 'WR%', 'Games'])
 sort_order = c3.selectbox('Order', options=['Desc', 'Asc'])
 
 if lb_type == 'Decks':
+    if 'deck_scores' not in st.session_state:
+        get_all_elo_scores()
     elo_scores = st.session_state.deck_scores
 else:
+    if 'user_scores' not in st.session_state:
+        get_all_elo_scores()
     elo_scores = st.session_state.user_scores
 
 
