@@ -199,7 +199,7 @@ if 'deck_games' not in st.session_state:
             except KeyError:
                 return 'Unknown Set'  # Or some default value
 
-        deck_games['Opponent Set'] = deck_games['Dok Data'].apply(lambda dok_data: database.set_conversion_dict[dok_data['Data']['deck']['expansion']][0])
+        deck_games['Opponent Set'] = deck_games['Dok Data'].apply(lambda dok_data: get_deck_set(dok_data))
 
         # Calculate winrate by 'Opponent Set' in a vectorized way
         set_winrate_df = deck_games.groupby('Opponent Set').size().reset_index(name='Count')
@@ -253,9 +253,9 @@ def pull_deck_data(d, p, c=False):
     if c:
         st.session_state.deck_data_compare = analysis.analyze_deck(d, p, aliases=st.session_state.pilot_info['aliases'])
     else:
-        if 'aliases' not in st.session_state.user_info:
-            st.session_state.user_info['aliases'] = []
-        st.session_state.deck_data = analysis.analyze_deck(d, p, aliases=st.session_state.user_info['aliases'])
+        if 'aliases' not in st.session_state.pilot_info:
+            st.session_state.pilot_info['aliases'] = []
+        st.session_state.deck_data = analysis.analyze_deck(d, p, aliases=st.session_state.pilot_info['aliases'])
 
 
 if 'deck_data' not in st.session_state:
