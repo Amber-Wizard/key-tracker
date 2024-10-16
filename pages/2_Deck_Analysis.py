@@ -185,7 +185,7 @@ if 'deck_games' not in st.session_state:
         if 'aliases' not in st.session_state.pilot_info:
             st.session_state.pilot_info['aliases'] = []
     with st.spinner('Getting deck games...'):
-        deck_games = database.get_deck_games(pilot, deck, aliases=st.session_state.aliases, trim_lists=True)
+        deck_games = database.get_deck_games(pilot, deck, aliases=st.session_state.pilot_info['aliases'], trim_lists=True)
     with st.spinner('Processing games...'):
         st.session_state.deck_games = deck_games
         deck_games['Opponent Deck ID'] = deck_games['Opponent Deck Link'].str.split('/').str[-1]
