@@ -192,6 +192,13 @@ if 'deck_games' not in st.session_state:
 
         # Vectorized retrieval of 'Dok Data' and 'Opponent Set'
         deck_games['Dok Data'] = deck_games['Opponent Deck ID'].apply(database.get_dok_cache_deck_id)
+
+        def get_deck_set(dok_data):
+            try:
+                return database.set_conversion_dict[dok_data['Data']['deck']['expansion']][0]
+            except KeyError:
+                return 'Unknown Set'  # Or some default value
+
         deck_games['Opponent Set'] = deck_games['Dok Data'].apply(lambda dok_data: database.set_conversion_dict[dok_data['Data']['deck']['expansion']][0])
 
         # Calculate winrate by 'Opponent Set' in a vectorized way
