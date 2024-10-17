@@ -16,6 +16,7 @@ set_conversion_dict = {
     'WINDS_OF_EXCHANGE': ['WoE'],
     'GRIM_REMINDERS': ['GR'],
     'AEMBER_SKIES': ['AES'],
+    'TOKENS_OF_CHANGE': ['ToC'],
     'VAULT_MASTERS_2023': ['VM23'],
     'VAULT_MASTERS_2024': ['VM24'],
 }
