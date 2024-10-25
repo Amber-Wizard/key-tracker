@@ -155,21 +155,6 @@ if 'shareID' in st.query_params:
         if 'deck_data' in st.session_state:
             del st.session_state['deck_data']
 
-# if 'deck_selection' in st.session_state:
-#     if 'elo_data' not in st.session_state:
-#         with st.spinner('Getting ELO...'):
-#             st.session_state.elo_data = database.get_elo(st.session_state.name, st.session_state.deck)
-#     st.session_state.deck = st.session_state.elo_data['deck']
-#     st.session_state.pilot = st.session_state.elo_data['player']
-#     st.session_state.score = st.session_state.elo_data['score']
-#     share_id = st.session_state.elo_data['_id']
-#     st.query_params['shareID'] = share_id
-#     st.session_state.share_id = share_id
-#     deck_link = st.session_state.deck_selection["Deck Link"].iloc[0]
-#     wins, losses = st.session_state.deck_selection["Win-Loss"].iat[0].split('-')
-#     games = st.session_state.deck_selection["Games"].iloc[0]
-#     winrate = st.session_state.deck_selection["Winrate"].iloc[0]
-
 if 'share_id' in st.session_state and 'elo_data' not in st.session_state:
     with st.spinner('Getting ELO...'):
         st.session_state.elo_data = database.get_elo_by_id(st.session_state.share_id)
@@ -178,6 +163,12 @@ if 'share_id' in st.session_state and 'elo_data' not in st.session_state:
     st.session_state.score = st.session_state.elo_data['score']
 
 if 'deck_games' not in st.session_state:
+    if 'pilot' not in st.session_state:
+        if 'elo_data' in st.session_state:
+            st.session_state.pilot = st.session_state.elo_data['player']
+        else:
+            st.error(f"Error locating deck pilot.")
+            st.session_state.pilot = ''
     pilot = st.session_state.pilot
     deck = st.session_state.deck
     with st.spinner('Getting pilot info...'):
@@ -231,6 +222,12 @@ if 'deck_games' not in st.session_state:
 
 
 if 'deck_selection' not in st.session_state:
+    if 'pilot' not in st.session_state:
+        if 'elo_data' in st.session_state:
+            st.session_state.pilot = st.session_state.elo_data['player']
+        else:
+            st.error(f"Error locating deck pilot.")
+            st.session_state.pilot = ''
     pilot = st.session_state.pilot
     deck_games = st.session_state.deck_games
     deck_link = st.session_state.deck_games['Deck Link'].iat[0]
@@ -265,6 +262,12 @@ if 'deck_data' not in st.session_state:
 if 'deck_data' not in st.session_state:
     st.error("No deck selected")
 else:
+    if 'pilot' not in st.session_state:
+        if 'elo_data' in st.session_state:
+            st.session_state.pilot = st.session_state.elo_data['player']
+        else:
+            st.error(f"Error locating deck pilot.")
+            st.session_state.pilot = ''
     pilot = st.session_state.pilot
     deck = st.session_state.deck
     score = st.session_state.score

@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 
 headers = {
-    "Api-Key": "0287d9c7-e0b6-4689-867c-f7223e520077" #st.secrets['dok']['api_key']
+    "Api-Key": st.secrets['dok']['api_key']
 }
 
 
@@ -43,4 +43,15 @@ card_df = load_card_data()
 def check_card_type(card_name):
     result = card_df.loc[card_df['cardTitle'] == card_name, 'cardType']
     return result.iloc[0] if not result.empty else None
+
+
+@st.cache_resource
+def test_api():
+    data = pull_deck_data('b14903de-91f1-47c6-acac-460ffbd43242')
+    if 'deck' in data and data['deck']:
+        print('DoK API is working.')
+    else:
+        print('DoK API is NOT working.')
+
+test_api()
 
