@@ -119,7 +119,7 @@ else:
     deck = st.session_state.game_data["Deck"][0].strip()
 
     c1, c2, c3, c4 = st.columns([22, 1, 1, 1])
-    c1.markdown(f'<b class="game-data-font">{st.session_state.game_data["Date"][0]}</b>', unsafe_allow_html=True)
+    c1.markdown(f'<b class="game-data-font">{st.session_state.game_data["Date"]}</b>', unsafe_allow_html=True)
 
     featured = database.check_featured(game_id)
     if 'name' in st.session_state and st.session_state.name and featured:
