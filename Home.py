@@ -15,7 +15,7 @@ default_settings = {
     'show_decks': False,
     'show_player': False,
     'show_player_page': False,
-    'board_layout': 'compact',
+    'board_layout': 'tco',
     'high_contrast': False,
     'achievements': [],
 }
@@ -197,8 +197,8 @@ if 'featured_game_log' not in st.session_state:
     with st.spinner('Getting featured games...'):
         st.session_state.featured_game_log = database.get_featured_game_log()
         display_log = st.session_state.featured_game_log
-        display_log['Set'] = display_log['Set'].apply(lambda x: [x])
-        display_log['Op. Set'] = display_log['Op. Set'].apply(lambda x: [x])
+        # display_log['Set'] = display_log['Set'].apply(lambda x: [x])
+        # display_log['Op. Set'] = display_log['Op. Set'].apply(lambda x: [x])
 
 if 'game_analysis_id' not in st.session_state:
     st.session_state.game_analysis_id = None
@@ -249,7 +249,7 @@ else:
     st.subheader("My Games")
     with st.expander("Select Game"):
         if st.session_state.game_log is not None and not st.session_state.game_log.empty:
-            game_choice = st.dataframe(st.session_state.game_log[['Date', 'Deck', 'Opponent Deck', 'Opponent', 'Winner', 'Format']], on_select='rerun', selection_mode='single-row', hide_index=True)
+            game_choice = st.dataframe(st.session_state.game_log[['Date', 'Deck', 'Opponent Deck', 'Opponent', 'Winner', 'Turns', 'Format']], on_select='rerun', selection_mode='single-row', hide_index=True)
         else:
             game_choice = None
             st.write("No games played.")
