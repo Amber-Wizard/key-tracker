@@ -4,6 +4,7 @@ import urllib.error
 import pymongo
 from bson.objectid import ObjectId
 import time
+from datetime import datetime
 
 import dok_api
 
@@ -157,6 +158,8 @@ def get_user_games(username, aliases=None, trim_lists=False):
             alias_df = to_dataframe(alias_data)
             if len(alias_df) > 0:
                 df = pd.concat([df, alias_df], ignore_index=True)
+
+    df['Turns'] = df['Game Log'].apply(lambda x: len(x[0][[k for k in x[0].keys() if k != 'player_hand'][0]]['cards_played']))
 
     if len(df) > 0:
         sorted_df = df.sort_values(by='Date', ascending=False)
@@ -483,7 +486,7 @@ def get_featured_game_log():
         game_data = get_game(game_id)
 
         if game_data:
-            for attribute in ['Date', 'Player', 'Opponent', 'Winner', 'Deck', 'Opponent Deck']:
+            for attribute in ['Player', 'Opponent', 'Winner', 'Deck', 'Opponent Deck']:
                 featured_games.at[idx, attribute] = game_data.get(attribute, [''])[0]
             deck_id = game_data.get('Deck Link', [''])[0].split('/')[-1]
             dok_data = get_dok_cache_deck_id(deck_id)
@@ -520,3 +523,24 @@ def like_game(gid, user):
     )
 
     return True, "Liked game"
+
+
+def update_dates():
+    collection = get_database('Games')
+
+    # Iterate through all documents and update the Date field
+    for doc in collection.find({"Date": {"$type": "array"}}):  # Only process documents with Date as an array
+        try:
+            # Extract the date string
+            date_string = doc["Date"][0]  # Assuming Date array always has one element
+            # Convert to a datetime object
+            date_object = datetime.strptime(date_string, "%Y-%m-%d %H:%M")
+            # Update the document in the database
+            collection.update_one(
+                {"_id": doc["_id"]},  # Match the specific document
+                {"$set": {"Date": date_object}}  # Set the new datetime object
+            )
+            print(f"Updated document with _id: {doc['_id']}")
+        except Exception as e:
+            print(f"Failed to update document with _id: {doc['_id']}. Error: {e}")
+
