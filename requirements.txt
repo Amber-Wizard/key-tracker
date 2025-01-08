@@ -1,7 +1,9 @@
-pandas
-numpy
+pandas~=2.2.2
+numpy~=1.24.3
 plotly~=5.22.0
 streamlit~=1.36.0
 streamlit-authenticator
 pymongo~=4.8.0
-requests
+requests~=2.32.3
+pillow~=10.4.0
+matplotlib~=3.9.2
