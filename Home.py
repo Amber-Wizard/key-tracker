@@ -81,7 +81,7 @@ else:
 
     c2.image(st.session_state.settings['icon_link'])
 
-versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0", "0.6.1", "0.7.0", "0.8.0"]
+versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0", "0.6.1", "0.7.0", "0.8.0", "0.9.0"]
 
 changes = [
     [
@@ -147,6 +147,18 @@ changes = [
         ' - Show Decks in Leaderboard',
         ' - Show Player Stats in Leaderboard',
         ' - Share Aggregate Data',
+    ],
+    [
+        'Added Meta Snapshot',
+        'Added Card Trainer (BETA)',
+        'Added Multiple TCO Names',
+        'Added More Mutation',
+        'Reformatted Pages',
+        'Added Advantage Charts',
+        'Updated Amber Charts',
+        'Updated House Charts',
+        'Added House Stats (Deck Analysis)',
+        'Added Winrate to Cards Played by Turn (Deck Analysis)',
     ]
 ]
 
@@ -205,7 +217,7 @@ if 'game_analysis_id' not in st.session_state:
 
 st.write('')
 
-cols = st.columns([1, 1, 1, 3])
+cols = st.columns([1, 1, 1, 1, 1, 1])
 
 if cols[1].button('Leaderboard'):
     st.switch_page("pages/4_Leaderboard.py")
@@ -218,8 +230,11 @@ else:
 if cols[0].button('Player Page', disabled=pp_disabled):
     st.switch_page("pages/3_Player_Page.py")
 
-# cols[2].button('Meta Snapshot', disabled=True)
+if cols[2].button('Meta Snapshot'):
+    st.switch_page("pages/5_Meta_Snapshot.py")
 
+if cols[3].button('Card Trainer'):
+    st.switch_page("pages/6_Card_Trainer.py")
 
 st.divider()
 
@@ -253,7 +268,9 @@ else:
         else:
             game_choice = None
             st.write("No games played.")
+
     c1, c2, c3, c4 = st.columns([1, 1, 1, 6])
+
     analyze_games = c1.button("Analyze", key='analyze_games')
     if analyze_games:
         if game_choice:
@@ -263,6 +280,7 @@ else:
             else:
                 st.session_state.game_id = st.session_state.game_log.iloc[selected_game[0]]['ID']
                 st.switch_page("pages/1_Game_Analysis.py")
+
     feature_games = c2.button("Feature", key='feature_games')
     if feature_games:
         if game_choice:
@@ -275,6 +293,7 @@ else:
                     st.success("Game featured!")
                 else:
                     st.error("Game has already been featured.")
+
     delete_games = c3.button("Delete", key='delete_games', type='primary')
     if delete_games:
         if game_choice:
@@ -294,6 +313,7 @@ else:
         else:
             deck_choice = None
             st.write("No games played.")
+
     analyze_deck = st.button("Analyze", key='analyze_deck')
     if analyze_deck:
         if deck_choice:
@@ -322,5 +342,9 @@ else:
     st.write('')
     st.write('')
     st.write('')
-    authenticator = users.get_authenticator()
+    authenticator, name_conversion_dict = users.get_authenticator()
+
+    if 'name_conversion_dict' not in st.session_state:
+        st.session_state.name_conversion_dict = name_conversion_dict
+
     authenticator.logout()

@@ -65,6 +65,18 @@ st.markdown("""
     font-size: 26px !important;
     color: #ff4b4b !important;
 }
+.hero-italic-font {
+    font-size: 26px !important;
+    color: #60b4ff !important;
+    font-style: italic !important;  /* Make this font italic */
+
+}
+.villain-italic-font {
+    font-size: 26px !important;
+    color: #ff4b4b !important;
+    font-style: italic !important;  /* Make this font italic */
+
+}
 .small-hero-font {
     font-size: 20px !important;
     color: #60b4ff !important;
@@ -74,47 +86,51 @@ st.markdown("""
     color: #ff4b4b !important;
 }
 .CotA-font {
-    font-size: 28px !important;
+    font-size: 26px !important;
     color: #d92b34 !important;
 }
 .AoA-font {
-    font-size: 28px !important;
+    font-size: 26px !important;
     color: #259adb !important;
 }
 .WC-font {
-    font-size: 28px !important;
+    font-size: 26px !important;
     color: #ad39a5 !important;
 }
 .MM-font {
-    font-size: 28px !important;
+    font-size: 26px !important;
     color: #e94e76 !important;
 }
 .DT-font {
-    font-size: 28px !important;
+    font-size: 26px !important;
     color: #136697 !important;
 }
 .WoE-font {
-    font-size: 28px !important;
+    font-size: 26px !important;
     color: #0c9aa8 !important;
 }
 .GR-font {
-    font-size: 28px !important;
+    font-size: 26px !important;
     color: #0c4f7f !important;
 }
 .AES-font {
-    font-size: 28px !important;
+    font-size: 26px !important;
     color: #f1ebd2 !important;
 }
 .ToC-font {
-    font-size: 28px !important;
+    font-size: 26px !important;
     color: #ea2e46 !important;
 }
+.MMM-font {
+    font-size: 26px !important;
+    color: #e94e76 !important;
+}
 .VM23-font {
-    font-size: 28px !important;
+    font-size: 26px !important;
     color: #838383 !important;
 }
 .VM24-font {
-    font-size: 28px !important;
+    font-size: 26px !important;
     color: #838383 !important;
 }
 .amber-font {
@@ -231,8 +247,11 @@ if 'deck_selection' not in st.session_state:
     pilot = st.session_state.pilot
     deck_games = st.session_state.deck_games
     deck_link = st.session_state.deck_games['Deck Link'].iat[0]
+    st.session_state.deck_dok_data = database.get_dok_cache_deck_id(deck_link.split('/')[-1])
     wins = (deck_games['Winner'].isin(st.session_state.pilot_info['aliases'] + [pilot])).sum()
     games = len(deck_games)
+    firsts = (deck_games['Starting Player'].isin(st.session_state.pilot_info['aliases'] + [pilot])).sum()
+    seconds = games - firsts
     losses = games - wins
     winrate = round(100 * wins / games)
 
@@ -240,6 +259,8 @@ if 'deck_selection' not in st.session_state:
     st.session_state.games = games
     st.session_state.losses = losses
     st.session_state.winrate = winrate
+    st.session_state.firsts = firsts
+    st.session_state.seconds = seconds
 
 
 def pull_deck_data(d, p, c=False):
@@ -328,77 +349,16 @@ else:
         c1.markdown(f'<b class="compare-deck-font">{st.session_state.compare_deck} (C)</b>', unsafe_allow_html=True)
         c2.link_button("Deck Info", st.session_state.compare_deck_link)
 
-    st.divider()
-
-    with st.container(border=True):
-
+    with st.spinner('Analyzing games...'):
         wins = st.session_state.wins
         losses = st.session_state.losses
         games = st.session_state.games
         winrate = st.session_state.winrate
 
-        c0, c1, c2, c3, c4 = st.columns([0.6, 1, 1, 1, 1])
-        c1.subheader("Games")
-        c2.subheader("Win-Loss")
-        c3.subheader("Winrate")
-        c4.subheader("ELO")
-        c1.markdown(f'<b class="plain-font">  {games}</b>', unsafe_allow_html=True)
-        c2.markdown(f'<b class="hero-font">  {wins}</b><b class="plain-font">-</b><b class="villain-font">{losses}</b>', unsafe_allow_html=True)
-        if winrate >= 50:
-            c3.markdown(f'<b class="hero-font">   {winrate}%</b>', unsafe_allow_html=True)
-        elif winrate < 50:
-            c3.markdown(f'<b class="villain-font">   {winrate}%</b>', unsafe_allow_html=True)
-        if score:
-            if score >= 1500:
-                c4.markdown(f'<b class="hero-font">{score}</b>', unsafe_allow_html=True)
-            elif score < 1500:
-                c4.markdown(f'<b class="villain-font">{score}</b>', unsafe_allow_html=True)
-    st.write(' ')
-    st.write(' ')
-    with st.container(border=True):
-        sets = ['CotA', 'AoA', 'WC', 'MM', 'DT', 'WoE', 'GR', 'AES', 'ToC', 'VM23', 'VM24']
-        set_winrate_df = st.session_state.set_winrate_df
-        cols = st.columns([0.25] + [1 for i in range(max(len(set_winrate_df), 4))])
-        col_num = 1
-        for s in sets:
-            if s in set_winrate_df['Opponent Set'].values:
-                cols[col_num].markdown(f'<b class ="{s}-font">vs {s}</b>', unsafe_allow_html=True)
-                set_winrate = set_winrate_df.loc[set_winrate_df['Opponent Set'] == s, 'Winrate'].iat[0]
-                set_games = set_winrate_df.loc[set_winrate_df['Opponent Set'] == s, 'Count'].iat[0]
-                if set_winrate >= 50:
-                    cols[col_num].markdown(f'<b class="hero-font">{set_winrate}% {set_games}</b>', unsafe_allow_html=True)
-                elif set_winrate < 50:
-                    cols[col_num].markdown(f'<b class="villain-font">{set_winrate}% {set_games}</b>', unsafe_allow_html=True)
-                col_num += 1
-
-    st.write(' ')
-    st.write(' ')
-    with st.container(border=True):
-        st.write(' ')
-        house_winrate_df = st.session_state.house_winrate_df
-        cols = st.columns([0.25, 1, 1, 1, 1, 1, 1, 1])
-        col_num = 1
-        for h in house_dict:
-            if h in house_winrate_df['Opponent Houses'].values:
-                cols[col_num].image(house_dict[h]['Image'])
-                house_winrate = house_winrate_df.loc[house_winrate_df['Opponent Houses'] == h, 'Winrate'].iat[0]
-                house_games = house_winrate_df.loc[house_winrate_df['Opponent Houses'] == h, 'Count'].iat[0]
-                if house_winrate >= 50:
-                    cols[col_num].markdown(f'<b class="hero-font"> {house_winrate}% {house_games}</b>', unsafe_allow_html=True)
-                elif house_winrate < 50:
-                    cols[col_num].markdown(f'<b class="villain-font"> {house_winrate}% {house_games}</b>', unsafe_allow_html=True)
-                col_num += 1
-                if col_num > 7:
-                    col_num = 1
-
-    st.write(' ')
-    st.write(' ')
-    st.write(' ')
-    with st.spinner('Analyzing games...'):
-        deck_df, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, player_card_data, opponent_card_data, turns = graphing.analyze_deck(pilot, st.session_state.deck_data, games)
+        deck_df, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, advantage_charts, player_card_data, opponent_card_data, turns = graphing.analyze_deck(pilot, st.session_state.deck_data, games)
         if 'deck_data_compare' in st.session_state and st.session_state.deck_data_compare is not None:
             compare_data = graphing.analyze_deck(pilot, st.session_state.deck_data_compare, st.session_state.compare_games)
-            compare_data[0].columns = compare_data[0].columns.map(lambda col: col + ' (C)')
+            compare_data[0].columns = compare_data[0].columns.map(lambda c: c + ' (C)')
             min_length = min(len(deck_df), len(compare_data[0]))
             chart_df = pd.concat([deck_df, compare_data[0]], axis=1)
             chart_df = chart_df[:min_length]
@@ -419,153 +379,6 @@ else:
             turn_df = pd.DataFrame(turns, columns=['Games'])
             chart_colors = [(255, 75, 75), (96, 180, 255)]
             comparison = False
-
-    st.subheader("Game Length")
-    if comparison:
-        y = ['Games', 'Games (C)']
-    else:
-        y = ['Games']
-    st.line_chart(
-        turn_df,
-        x=None,
-        y=y,
-        y_label='Games (%)',
-    )
-
-    c1, c2 = st.columns(2)
-    c1.subheader("Total Amber Value")
-    if comparison:
-        y = ['Player Amber', 'Opponent Amber', 'Player Amber (C)', 'Opponent Amber (C)']
-    else:
-        y = ['Player Amber', 'Opponent Amber']
-    c1.line_chart(
-        chart_df,
-        x=None,
-        y=y,
-        x_label='Turn',
-        y_label='Amber Value',
-        color=chart_colors
-    )
-
-    c2.subheader("Total Cards Played")
-    if comparison:
-        y = ['Player Cards', 'Opponent Cards', 'Player Cards (C)', 'Opponent Cards (C)']
-    else:
-        y = ['Player Cards', 'Opponent Cards']
-    c2.line_chart(
-        chart_df,
-        x=None,
-        y=y,
-        x_label='Turn',
-        y_label='Cards Played',
-        color=chart_colors
-    )
-
-    c1.subheader("Prediction")
-    if comparison:
-        y = ['Player Prediction', 'Opponent Prediction', 'Player Prediction (C)', 'Opponent Prediction (C)']
-    else:
-        y = ['Player Prediction', 'Opponent Prediction']
-    c1.line_chart(
-        chart_df,
-        x=None,
-        y=y,
-        x_label='Turn',
-        y_label='Turns to Win',
-        color=chart_colors
-    )
-
-    c2.subheader("Creatures")
-    if comparison:
-        y = ['Player Creatures', 'Opponent Creatures', 'Player Creatures (C)', 'Opponent Creatures (C)']
-    else:
-        y = ['Player Creatures', 'Opponent Creatures']
-    c2.line_chart(
-        chart_df,
-        x=None,
-        y=y,
-        x_label='Turn',
-        y_label='Creatures',
-        color=chart_colors
-    )
-
-    c1.subheader("Amber Delta")
-    if comparison:
-        y = ['Player Delta', 'Opponent Delta', 'Player Delta (C)', 'Opponent Delta (C)']
-    else:
-        y = ['Player Delta', 'Opponent Delta']
-    c1.line_chart(
-        chart_df,
-        x=None,
-        y=y,
-        x_label='Turn',
-        y_label='Delta',
-        color=chart_colors
-    )
-
-    c2.subheader("Reap Rate")
-    if comparison:
-        y = ['Player Reap Rate', 'Opponent Reap Rate', 'Player Reap Rate (C)', 'Opponent Reap Rate (C)']
-    else:
-        y = ['Player Reap Rate', 'Opponent Reap Rate']
-    c2.line_chart(
-        chart_df,
-        x=None,
-        y=y,
-        x_label='Turn',
-        y_label='Reap Rate (%)',
-        color=chart_colors
-    )
-
-    c1.subheader("Amber Defense")
-    if comparison:
-        y = ['Player Amber Defense', 'Opponent Amber Defense', 'Player Amber Defense (C)', 'Opponent Amber Defense (C)']
-    else:
-        y = ['Player Amber Defense', 'Opponent Amber Defense']
-    c1.line_chart(
-        chart_df,
-        x=None,
-        y=y,
-        x_label='Turn',
-        y_label='Amber Defense (%)',
-        color=chart_colors
-    )
-
-    c2.subheader("Creature Survival Rate")
-    if comparison:
-        y = ['Player Survival Rate', 'Opponent Survival Rate', 'Player Survival Rate (C)', 'Opponent Survival Rate (C)']
-    else:
-        y = ['Player Survival Rate', 'Opponent Survival Rate']
-    c2.line_chart(
-        chart_df,
-        x=None,
-        y=y,
-        x_label='Turn',
-        y_label='Survival Rate (%)',
-        color=chart_colors
-    )
-
-    c1.subheader("Player Amber Sources")
-    c1.plotly_chart(player_amber_sources, use_container_width=True)
-    c2.subheader("Opponent Amber Sources")
-    c2.plotly_chart(opponent_amber_sources, use_container_width=True)
-
-    if comparison:
-        c1.subheader("Player Amber Sources (C)")
-        c1.plotly_chart(compare_data[1], use_container_width=True)
-        c2.subheader("Opponent Amber Sources (C)")
-        c2.plotly_chart(compare_data[2], use_container_width=True)
-
-    c1.subheader("Player House Calls")
-    c1.plotly_chart(player_house_calls, use_container_width=True)
-    c2.subheader("Opponent House Calls")
-    c2.plotly_chart(opponent_house_calls, use_container_width=True)
-
-    if comparison:
-        c1.subheader("Player House Calls (C)")
-        c1.plotly_chart(compare_data[3], use_container_width=True)
-        c2.subheader("Opponent House Calls (C)")
-        c2.plotly_chart(compare_data[4], use_container_width=True)
 
     player_card_data['Games %'] = 0
     player_card_data['WR%'] = np.nan
@@ -614,62 +427,365 @@ else:
 
             opponent_card_data.at[idx, 'Games %'] = round(100*(c_wins + c_losses) / games)
 
-    player_card_data['Impact'] = round((player_card_data['WR%'] - player_card_data['(-)WR%']) * (50-abs(player_card_data['Games %']-50)) / 50, 1)
-    opponent_card_data['Impact'] = round((opponent_card_data['WR%'] - opponent_card_data['(-)WR%']) * (50-abs(opponent_card_data['Games %']-50)) / 50, 1)
-    st.subheader("Card Data")
-    with st.expander(r"$\textsf{\large Player Card Data}$"):
-        st.dataframe(player_card_data, hide_index=True)
+    # player_card_data['Impact'] = round((player_card_data['WR%'] - player_card_data['(-)WR%']) * (50-abs(player_card_data['Games %']-50)) / 50, 1)
+    # opponent_card_data['Impact'] = round((opponent_card_data['WR%'] - opponent_card_data['(-)WR%']) * (50-abs(opponent_card_data['Games %']-50)) / 50, 1)
 
-    with st.expander(r"$\textsf{\large Opponent Card Data}$"):
-        st.dataframe(opponent_card_data, hide_index=True)
+    st.divider()
 
-    if 'expand_all' not in st.session_state:
-        st.session_state.expand_all = False
+    tab_1, tab_2, tab_3, tab_4 = st.tabs(['Info', 'Charts', 'Advantage', 'Cards'])
 
-    def expand_turns():
-        if not st.session_state.expand_all:
-            st.session_state.expand_all = True
+    with tab_1:
+        with st.container(border=True):
+
+            wins = st.session_state.wins
+            losses = st.session_state.losses
+            games = st.session_state.games
+            winrate = st.session_state.winrate
+
+            c0, c1, c2, c3, c4 = st.columns([0.6, 1, 1, 1, 1])
+            c1.subheader("Games")
+            c2.subheader("Win-Loss")
+            c3.subheader("Winrate")
+            c4.subheader("ELO")
+            c1.markdown(f'<b class="plain-font">  {games}</b>', unsafe_allow_html=True)
+            c2.markdown(f'<b class="hero-font">  {wins}</b><b class="plain-font">-</b><b class="villain-font">{losses}</b>', unsafe_allow_html=True)
+            if winrate >= 50:
+                c3.markdown(f'<b class="hero-font">   {winrate}%</b>', unsafe_allow_html=True)
+            elif winrate < 50:
+                c3.markdown(f'<b class="villain-font">   {winrate}%</b>', unsafe_allow_html=True)
+            if score:
+                if score >= 1500:
+                    c4.markdown(f'<b class="hero-font">{score}</b>', unsafe_allow_html=True)
+                elif score < 1500:
+                    c4.markdown(f'<b class="villain-font">{score}</b>', unsafe_allow_html=True)
+
+        houses_and_cards = st.session_state.deck_dok_data['Data']['deck']['housesAndCards']
+
+        house_cards = {entry["house"]: [card["cardTitle"] for card in entry["cards"]] for entry in houses_and_cards}
+
+        house_scores = {h: {
+            'Rating': {
+                'Games': 0,
+                'Wins': 0,
+            },
+            'Dependence': {
+                'Games': 0,
+                'Wins': 0,
+            },
+            'Cards Played': 0,
+            'Amber Gained': 0,
+        } for h in house_cards.keys()}
+
+        games = st.session_state.games
+        winrate = st.session_state.winrate
+
+        cols = st.columns(3)
+
+        total_cards_played = player_card_data['Played'].sum()
+        total_amber_gained = player_card_data['Amber'].sum()
+
+        cards_checked = []
+
+        for i, house in enumerate(house_cards):
+            for card in house_cards[house]:
+                c_data = player_card_data.loc[player_card_data['Card'] == card]
+                cr_games = round(games * c_data['Games %'].iloc[0] / 100)
+                try:
+                    cr_wins = round(cr_games * c_data['WR%'].iloc[0] / 100)
+                except:
+                    cr_wins = 0
+
+                house_scores[house]['Rating']['Games'] += cr_games
+                house_scores[house]['Rating']['Wins'] += cr_wins
+
+                cd_games = games - cr_games
+                if cd_games > 0:
+                    try:
+                        cd_wins = round(cd_games * c_data['(-)WR%'].iloc[0] / 100)
+                    except:
+                        cd_wins = 0
+                else:
+                    cd_wins = 0
+
+                house_scores[house]['Dependence']['Games'] += cd_games
+                house_scores[house]['Dependence']['Wins'] += cd_wins
+
+                if card not in cards_checked:
+                    cards_checked.append(card)
+
+                    card_played = c_data['Played'].iloc[0]
+                    house_scores[house]['Cards Played'] += card_played
+
+                    amber_gained = c_data['Amber'].iloc[0]
+                    house_scores[house]['Amber Gained'] += amber_gained
+
+            h_wr = round(100 * house_scores[house]['Rating']['Wins'] / house_scores[house]['Rating']['Games'])
+            h_dp = round(100 * (1 - house_scores[house]['Dependence']['Wins'] / house_scores[house]['Dependence']['Games']))
+
+            with cols[i].container(border=True):
+                st.markdown(f'<b class="plain-font">{house} Strength</b>', unsafe_allow_html=True)
+                c1, c2, _ = st.columns([2.8, 1, 0.2])
+                c1.metric(f'{house} Strength', value=h_wr, delta=round(h_wr - winrate), label_visibility='collapsed')
+                c2.image(house_dict[house]['Image'])
+                st.divider()
+                st.markdown(f'<b class="plain-font">{house} Dependence</b>', unsafe_allow_html=True)
+                st.metric(f'{house} Dependence', value=h_dp, delta=round(h_dp - (100 - winrate)), delta_color='inverse', label_visibility='collapsed')
+                st.divider()
+                st.markdown(f'<p class="plain-font">Cards Played: {round(100*house_scores[house]["Cards Played"]/total_cards_played)}%</p>', unsafe_allow_html=True)
+                st.markdown(f'<p class="plain-font">Amber Gained: {round(100*house_scores[house]["Amber Gained"]/total_cards_played)}%</p>', unsafe_allow_html=True)
+
+        with st.container(border=True):
+            sets = ['CotA', 'AoA', 'WC', 'MM', 'DT', 'WoE', 'GR', 'AES', 'ToC', 'MMM', 'VM23', 'VM24']
+            set_winrate_df = st.session_state.set_winrate_df
+            cols = st.columns([0.25] + [1 for i in range(max(len(set_winrate_df), 4))])
+            col_num = 1
+            for s in sets:
+                if s in set_winrate_df['Opponent Set'].values:
+                    cols[col_num].markdown(f'<b class ="{s}-font">vs {s}</b>', unsafe_allow_html=True)
+                    set_winrate = set_winrate_df.loc[set_winrate_df['Opponent Set'] == s, 'Winrate'].iat[0]
+                    set_games = set_winrate_df.loc[set_winrate_df['Opponent Set'] == s, 'Count'].iat[0]
+                    if set_winrate >= 50:
+                        cols[col_num].markdown(f'<b class="hero-font">{set_winrate}% {set_games}</b>', unsafe_allow_html=True)
+                    elif set_winrate < 50:
+                        cols[col_num].markdown(f'<b class="villain-font">{set_winrate}% {set_games}</b>', unsafe_allow_html=True)
+                    col_num += 1
+
+        with st.container(border=True):
+            st.write(' ')
+            house_winrate_df = st.session_state.house_winrate_df
+            cols = st.columns([0.25, 1, 1, 1, 1, 1, 1, 1])
+            col_num = 1
+            for h in house_dict:
+                if h in house_winrate_df['Opponent Houses'].values:
+                    cols[col_num].image(house_dict[h]['Image'])
+                    house_winrate = house_winrate_df.loc[house_winrate_df['Opponent Houses'] == h, 'Winrate'].iat[0]
+                    house_games = house_winrate_df.loc[house_winrate_df['Opponent Houses'] == h, 'Count'].iat[0]
+                    if house_winrate >= 50:
+                        cols[col_num].markdown(f'<b class="hero-font"> {house_winrate}% {house_games}</b>', unsafe_allow_html=True)
+                    elif house_winrate < 50:
+                        cols[col_num].markdown(f'<b class="villain-font"> {house_winrate}% {house_games}</b>', unsafe_allow_html=True)
+                    col_num += 1
+                    if col_num > 7:
+                        col_num = 1
+
+    with tab_2:
+        st.subheader("Game Length")
+        if comparison:
+            y = ['Games', 'Games (C)']
         else:
+            y = ['Games']
+        st.line_chart(
+            turn_df,
+            x=None,
+            y=y,
+            y_label='Games (%)',
+        )
+
+        c1, c2 = st.columns(2)
+
+        base_colors = [(255, 75, 75), (96, 180, 255)]
+
+        chart_dict = {
+            "Total Amber Value": {
+                'y_values': ['Player Amber', 'Opponent Amber'],
+                'y_label': 'Amber Value',
+                'color': base_colors,
+            },
+            "Total Cards Played": {
+                'y_values': ['Player Cards', 'Opponent Cards'],
+                'y_label': 'Cards Played',
+                'color': base_colors,
+            },
+            "Prediction": {
+                'y_values': ['Player Prediction', 'Opponent Prediction'],
+                'y_label': 'Turns to Win',
+                'color': base_colors,
+            },
+            "Creatures": {
+                'y_values': ['Player Creatures', 'Opponent Creatures'],
+                'y_label': 'Creatures',
+                'color': base_colors,
+            },
+            "Amber Delta": {
+                'y_values': ['Player Delta', 'Opponent Delta'],
+                'y_label': 'Delta',
+                'color': base_colors,
+            },
+            "Reap Rate": {
+                'y_values': ['Player Reap Rate', 'Opponent Reap Rate'],
+                'y_label': 'Reap Rate (%)',
+                'color': base_colors,
+            },
+            "Amber Defense": {
+                'y_values': ['Player Amber Defense', 'Opponent Amber Defense'],
+                'y_label': 'Amber Defense (%)',
+                'color': base_colors,
+            },
+            "Creature Survival Rate": {
+                'y_values': ['Player Survival Rate', 'Opponent Survival Rate'],
+                'y_label': 'Survival Rate (%)',
+                'color': base_colors,
+            },
+        }
+
+        for i, chart in enumerate(chart_dict.keys()):
+            if i % 2 == 0:
+                col = c1
+            else:
+                col = c2
+
+            col.subheader(chart)
+            col.line_chart(
+                chart_df,
+                x=None,
+                y=chart_dict[chart]['y_values'],
+                x_label='Turn',
+                y_label=chart_dict[chart]['y_label'],
+                color=chart_dict[chart]['color']
+            )
+
+        # c1.subheader("Reap/Kill Advantage")
+        # y = ['Reap/Kill Advantage']
+        # c1.line_chart(
+        #     chart_df,
+        #     x=None,
+        #     y=y,
+        #     x_label='Turn',
+        #     y_label='Reap Advantage',
+        #     color=chart_colors[1]
+        # )
+        #
+        # c2.subheader("Reap/Trade Advantage")
+        # y = ['Reap/Trade Advantage']
+        # c2.line_chart(
+        #     chart_df,
+        #     x=None,
+        #     y=y,
+        #     x_label='Turn',
+        #     y_label='Reap Advantage',
+        #     color=chart_colors[1]
+        # )
+
+        c1.subheader("Player Amber Sources")
+        c1.plotly_chart(player_amber_sources, use_container_width=True)
+        c2.subheader("Opponent Amber Sources")
+        c2.plotly_chart(opponent_amber_sources, use_container_width=True)
+
+        if comparison:
+            c1.subheader("Player Amber Sources (C)")
+            c1.plotly_chart(compare_data[1], use_container_width=True)
+            c2.subheader("Opponent Amber Sources (C)")
+            c2.plotly_chart(compare_data[2], use_container_width=True)
+
+        c1.subheader("Player House Calls")
+        c1.image(player_house_calls)
+        c2.subheader("Opponent House Calls")
+        c2.image(opponent_house_calls)
+
+        if comparison:
+            c1.subheader("Player House Calls (C)")
+            c1.plotly_chart(compare_data[3], use_container_width=True)
+            c2.subheader("Opponent House Calls (C)")
+            c2.plotly_chart(compare_data[4], use_container_width=True)
+
+    with tab_3:
+        c1, c2 = st.columns(2)
+
+        advantage_stats = ['Amber', 'Cards', 'Prediction', 'Creatures', 'Delta', 'Reap Rate', 'Amber Defense', 'Survival Rate']
+        advantage_chart_list = [f'{s} Advantage' for s in advantage_stats]
+
+        for i, advantage in enumerate(advantage_chart_list):
+            if i % 2 == 0:
+                col = c1
+            else:
+                col = c2
+
+            col.subheader(advantage)
+            col.plotly_chart(advantage_charts[i])
+
+    with tab_4:
+        st.subheader("Card Data")
+        with st.expander(r"$\textsf{\large Player Card Data}$"):
+            st.dataframe(player_card_data, hide_index=True)
+
+        with st.expander(r"$\textsf{\large Opponent Card Data}$"):
+            st.dataframe(opponent_card_data, hide_index=True)
+
+        if 'expand_all' not in st.session_state:
             st.session_state.expand_all = False
 
-    st.write('')
-    c1, c2 = st.columns([6, 1])
-    c1.subheader("Cards Played")
-    if st.session_state.expand_all:
-        exp_button_string = "Collapse All"
-    else:
-        exp_button_string = "Expand All"
-    c2.button(exp_button_string, on_click=expand_turns)
+        def expand_turns():
+            if not st.session_state.expand_all:
+                st.session_state.expand_all = True
+            else:
+                st.session_state.expand_all = False
 
-    card_image_dict = dok_api.card_df.set_index('cardTitle')['cardTitleUrl'].to_dict()
+        st.write('')
+        c1, c2, c3 = st.columns([5, 1, 1])
+        c1.subheader("Cards Played")
+        if st.session_state.expand_all:
+            exp_button_string = "Collapse All"
+        else:
+            exp_button_string = "Expand All"
 
-    for t, cards_played in enumerate(st.session_state.deck_data[pilot]['individual_cards_played']):
+        starting_turn_string = c2.selectbox('Starting', options=['Going First', 'Going Second'], label_visibility='collapsed')
 
-        cards_played_turn = cards_played
+        starting_turn = starting_turn_string.split(' ')[-1].lower()
 
-        total_played = sum(cards_played_turn.values())
-        if total_played > 0:
-            relative_frequencies = {key: value / total_played for key, value in cards_played_turn.items()}
+        if starting_turn == 'first':
+            num_games = st.session_state.firsts
+        else:
+            num_games = st.session_state.seconds
+
+        card_played_data = st.session_state.deck_data[pilot]['individual_cards_played_turn'][starting_turn]
+
+        c3.button(exp_button_string, on_click=expand_turns)
+
+        card_image_dict = dok_api.card_image_dict
+
+        for t, cards_played_turn in enumerate(card_played_data):
+            relative_frequencies = {key: value['played'] / num_games for key, value in cards_played_turn.items()}
             df = pd.DataFrame(list(relative_frequencies.items()), columns=['Card', 'Relative Frequency'])
             df_sorted = df.sort_values(by='Relative Frequency', ascending=False)
 
-            turn_string = f"Turn {t}"
+            turn_string = f"Turn {t+1}"
             with st.expander(fr"$\texttt{{\large {turn_string}}}$", expanded=st.session_state.expand_all):
                 cols = st.columns(10)
 
                 for i in range(min(10, len(df_sorted))):
                     card_row = df_sorted.iloc[i]
                     card_name = card_row['Card']
+                    card_name_image = card_name.split('~~')[0]
+
                     frequency = round(card_row['Relative Frequency'] * 100)
-                    frequency_string = f"   {frequency}%"
-                    if card_name not in card_image_dict:
-                        st.toast(f"Card image not found: {card_name}")
+                    if frequency == 100:
+                        frequency_string = f"  {frequency}%"
+                    elif frequency < 10:
+                        frequency_string = f"    {frequency}%"
+                    else:
+                        frequency_string = f"   {frequency}%"
+
+                    card_turn_data = cards_played_turn[card_name]
+                    card_turn_winrate = round(100 * card_turn_data['wins'] / card_turn_data['played'])
+                    if card_turn_winrate == 100:
+                        card_turn_winrate_string = f"  {card_turn_winrate}%"
+                    elif card_turn_winrate < 10:
+                        card_turn_winrate_string = f"    {card_turn_winrate}%"
+                    else:
+                        card_turn_winrate_string = f"   {card_turn_winrate}%"
+
+                    if card_name_image not in card_image_dict:
+                        st.toast(f"Card image not found: {card_name_image}")
                         image_link = None
                     else:
-                        image_link = card_image_dict[card_name]
+                        image_link = card_image_dict[card_name_image]
                         try:
                             cols[i].image(image_link)
                         except:
                             st.toast(f"Error getting card image: {image_link}")
                     cols[i].markdown(f'<b class="plain-italic-font">{frequency_string}</b>', unsafe_allow_html=True)
+                    if card_turn_winrate >= 50:
+                        cols[i].markdown(f'<b class="hero-italic-font">{card_turn_winrate_string}</b>', unsafe_allow_html=True)
+                    else:
+                        cols[i].markdown(f'<b class="villain-italic-font">{card_turn_winrate_string}</b>', unsafe_allow_html=True)
 

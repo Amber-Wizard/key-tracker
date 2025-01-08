@@ -4,7 +4,7 @@ import urllib.error
 import pymongo
 from bson.objectid import ObjectId
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import dok_api
 
@@ -18,6 +18,7 @@ set_conversion_dict = {
     'GRIM_REMINDERS': ['GR'],
     'AEMBER_SKIES': ['AES'],
     'TOKENS_OF_CHANGE': ['ToC'],
+    'MORE_MUTATION': ['MMM'],
     'VAULT_MASTERS_2023': ['VM23'],
     'VAULT_MASTERS_2024': ['VM24'],
 }
@@ -48,6 +49,12 @@ def get_database(db_name):
     return database_dict[db_name]
 
 
+def del_database(db_name):
+    db = get_database(db_name)
+    result = db.delete_many({})
+    return result
+
+
 def add_user(username, password, email, tco_name):
     db = get_database('Users')
     return db.insert_one({"username": username, "password": password, "email": email, "tco_name": tco_name}).acknowledged
@@ -73,10 +80,37 @@ def get_all_users():
     return db.find()
 
 
+def get_name_conversion_dict():
+    user_db = get_all_users()
+    name_conversion_dict = {}
+
+    for user in user_db:
+        name_conversion_dict[user['tco_name']] = user['tco_name']
+        if 'aliases' in user:
+            for alias in user['aliases']:
+                name_conversion_dict[alias] = user['tco_name']
+
+    return name_conversion_dict
+
+
+def get_private_data_users():
+    db = get_database('Users')
+    return db.find({'game_data_use': False})
+
+
 def update_user_settings(player, settings):
     db = get_database('Users')
     query = {'tco_name': player}
     update_data = {'$set': settings}
+    inserted_result = db.update_one(query, update_data, upsert=False)
+
+    return inserted_result
+
+
+def remove_user_setting(player, setting):
+    db = get_database('Users')
+    query = {'tco_name': player}
+    update_data = {'$unset': {setting: ""}}
     inserted_result = db.update_one(query, update_data, upsert=False)
 
     return inserted_result
@@ -147,6 +181,20 @@ def update_game_decks(gid, deck, deck_link, player=True):
         return False
 
 
+def update_game_winner(gid, winner):
+    db = get_database('Games')
+    query = {'ID': gid}
+    new_values = {"$set": {"Winner": [winner]}}
+    result = db.update_one(query, new_values)
+
+    if result.modified_count > 0:
+        print(f"Updated Winner [{gid}] - {winner}")
+        return True
+    else:
+        print(f"Failed to update Winner [{gid}]: {winner}")
+        return False
+
+
 def get_user_games(username, aliases=None, trim_lists=False):
     db = get_database('Games')
     data = db.find({'Player': username})
@@ -159,10 +207,24 @@ def get_user_games(username, aliases=None, trim_lists=False):
             if len(alias_df) > 0:
                 df = pd.concat([df, alias_df], ignore_index=True)
 
-    df['Turns'] = df['Game Log'].apply(lambda x: len(x[0][[k for k in x[0].keys() if k != 'player_hand'][0]]['cards_played']))
+    def count_turns(game_log):
+        try:
+            return len(game_log[0][[k for k in game_log[0].keys() if k != 'player_hand'][0]]['cards_played'])
+        except:
+            return 0
+
+    df['Turns'] = df['Game Log'].apply(count_turns)
 
     if len(df) > 0:
-        sorted_df = df.sort_values(by='Date', ascending=False)
+        try:
+            sorted_df = df.sort_values(by='Date', ascending=False)
+        except:
+            update_dates()
+            try:
+                sorted_df = df.sort_values(by='Date', ascending=False)
+            except:
+                sorted_df = df
+
         if 'Format' in sorted_df.columns:
             sorted_df['Format'] = sorted_df['Format'].apply(lambda x: x if isinstance(x, list) else ['Archon'])
         else:
@@ -392,8 +454,12 @@ def get_elo_by_id(share_id):
 
 
 def calculate_elo(starting_value, k_value):
+    del_database('ELO')
     games = get_all_games()
     games = games.sort_values(by='Date', ascending=True)
+    name_conversion_dict = get_name_conversion_dict()
+    print(name_conversion_dict)
+    games['Player'] = games['Player'].map(name_conversion_dict)
     players = games['Player'].unique()
     opponents = games['Opponent'].unique()
     player_elo_dict = {}
@@ -523,6 +589,27 @@ def like_game(gid, user):
     )
 
     return True, "Liked game"
+
+
+def get_all_recent_games(days=30, data_share=True):
+    collection = get_database('Games')
+
+    start_date = datetime.now() - timedelta(days=days)
+
+    recent_games = collection.find({"Date": {"$gte": start_date}})
+
+    recent_games_df = to_dataframe(recent_games)
+    if data_share:
+        private_data_users = list(get_private_data_users())
+        private_data_username_list = [p['tco_name'] for p in private_data_users]
+        for u in private_data_users:
+            if 'aliases' in u:
+                private_data_username_list += u['aliases']
+        private_data_username_list = [[p] for p in private_data_username_list]
+
+        recent_games_df = recent_games_df[~recent_games_df['Player'].isin(private_data_username_list)]
+
+    return recent_games_df
 
 
 def update_dates():

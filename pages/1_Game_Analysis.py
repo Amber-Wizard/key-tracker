@@ -86,12 +86,11 @@ if 'game_id' in st.session_state:
 
 
 def pull_game_data(gid):
-    with st.spinner('Getting game data...'):
-        st.session_state.game_data = database.get_game(gid)
-        if 'player_info' in st.session_state:
-            del st.session_state['player_info']
-        if 'opponent_info' in st.session_state:
-            del st.session_state['opponent_info']
+    st.session_state.game_data = database.get_game(gid)
+    if 'player_info' in st.session_state:
+        del st.session_state['player_info']
+    if 'opponent_info' in st.session_state:
+        del st.session_state['opponent_info']
 
 if game_id:
     pull_game_data(game_id)
@@ -119,7 +118,7 @@ else:
     deck = st.session_state.game_data["Deck"][0].strip()
 
     c1, c2, c3, c4 = st.columns([22, 1, 1, 1])
-    c1.markdown(f'<b class="game-data-font">{st.session_state.game_data["Date"][0]}</b>', unsafe_allow_html=True)
+    c1.markdown(f'<b class="game-data-font">{st.session_state.game_data["Date"]}</b>', unsafe_allow_html=True)
 
     featured = database.check_featured(game_id)
     if 'name' in st.session_state and st.session_state.name and featured:
@@ -135,274 +134,289 @@ else:
     if home:
         st.switch_page("Home.py")
     st.write('')
-    c1, c2 = st.columns([1, 13], vertical_alignment='center')
-    c1.image(st.session_state.player_icon)
-    c2.markdown(f'<b class="hero-title-font">{player}</b>', unsafe_allow_html=True)
-    st.write('')
-    c1, c2 = st.columns([7, 1])
-    c1.markdown(f'<b class="deck-font">{deck}</b>', unsafe_allow_html=True)
-    if st.session_state.game_data["Deck Link"][0]:
-        c2.link_button("Deck Info", st.session_state.game_data["Deck Link"][0])
-    else:
-        if 'name' in st.session_state and st.session_state.name == st.session_state.game_data['Player'][0]:
-            with c2.popover("Add Deck"):
-                st.write("Paste Deck Link")
-                p_cols = st.columns([3, 1])
-                p_deck_link = p_cols[0].text_input("", label_visibility='collapsed')
-                if p_cols[1].button("➤", key='submit_p_deck'):
-                    deck_code = p_deck_link.split('/')[-1]
-                    if len(deck_code) == 36 and all(deck_code[i] == '-' for i in [8, 13, 18, 23]):
-                        with st.spinner("Getting deck data..."):
+
+    tab_1, tab_2, tab_3, tab_4 = st.tabs(['Info', 'Summary', 'Advantage', 'Replay'])
+
+    with tab_1:
+        c1, c2 = st.columns([1, 13], vertical_alignment='center')
+        c1.image(st.session_state.player_icon)
+        c2.markdown(f'<b class="hero-title-font">{player}</b>', unsafe_allow_html=True)
+        st.write('')
+        c1, c2 = st.columns([7, 1])
+        c1.markdown(f'<b class="deck-font">{deck}</b>', unsafe_allow_html=True)
+        if st.session_state.game_data["Deck Link"][0]:
+            c2.link_button("Deck Info", st.session_state.game_data["Deck Link"][0])
+        else:
+            if 'name' in st.session_state and st.session_state.name == st.session_state.game_data['Player'][0]:
+                with c2.popover("Add Deck"):
+                    st.write("Paste Deck Link")
+                    p_cols = st.columns([3, 1])
+                    p_deck_link = p_cols[0].text_input("", label_visibility='collapsed')
+                    if p_cols[1].button("➤", key='submit_p_deck'):
+                        deck_code = p_deck_link.split('/')[-1]
+                        if len(deck_code) == 36 and all(deck_code[i] == '-' for i in [8, 13, 18, 23]):
                             dok_data = database.get_dok_cache_deck_id(deck_code)
                             if database.update_game_decks(st.session_state.game_id, dok_data['Deck'], "https://decksofkeyforge.com/decks/"+dok_data['ID']):
                                 st.success(f"Deck Updated: {dok_data['Deck']}")
                             else:
                                 st.error(f"Error Updating Deck Info")
-                    else:
-                        st.error(f"Invalid Deck Code: {deck_code}")
-    st.write('vs')
-    c1, c2 = st.columns([7, 1])
-    c1.markdown(f'<b class="deck-font">{st.session_state.game_data["Opponent Deck"][0]}</b>', unsafe_allow_html=True)
-    if st.session_state.game_data["Opponent Deck Link"][0]:
-        c2.link_button("Deck Info", st.session_state.game_data["Opponent Deck Link"][0])
-    else:
-        if 'name' in st.session_state and st.session_state.name == st.session_state.game_data['Player'][0]:
-            with c2.popover("Add Deck"):
-                st.write("Paste Deck Link")
-                p_cols = st.columns([3, 1])
-                p_deck_link = p_cols[0].text_input("", label_visibility='collapsed')
-                if p_cols[1].button("➤", key='submit_op_deck'):
-                    deck_code = p_deck_link.split('/')[-1]
-                    if len(deck_code) == 36 and all(deck_code[i] == '-' for i in [8, 13, 18, 23]):
-                        with st.spinner("Getting deck data..."):
+                        else:
+                            st.error(f"Invalid Deck Code: {deck_code}")
+        st.write('vs')
+        c1, c2 = st.columns([7, 1])
+        c1.markdown(f'<b class="deck-font">{st.session_state.game_data["Opponent Deck"][0]}</b>', unsafe_allow_html=True)
+        if st.session_state.game_data["Opponent Deck Link"][0]:
+            c2.link_button("Deck Info", st.session_state.game_data["Opponent Deck Link"][0])
+        else:
+            if 'name' in st.session_state and st.session_state.name == st.session_state.game_data['Player'][0]:
+                with c2.popover("Add Deck"):
+                    st.write("Paste Deck Link")
+                    p_cols = st.columns([3, 1])
+                    p_deck_link = p_cols[0].text_input("", label_visibility='collapsed')
+                    if p_cols[1].button("➤", key='submit_op_deck'):
+                        deck_code = p_deck_link.split('/')[-1]
+                        if len(deck_code) == 36 and all(deck_code[i] == '-' for i in [8, 13, 18, 23]):
                             dok_data = database.get_dok_cache_deck_id(deck_code)
                             if database.update_game_decks(st.session_state.game_id, dok_data['Deck'], "https://decksofkeyforge.com/decks/"+dok_data['ID'], player=False):
                                 st.success(f"Deck Updated: {dok_data['Deck']}")
                             else:
                                 st.error(f"Error Updating Deck Info")
-                    else:
-                        st.error(f"Invalid Deck Code: {deck_code}")
-    st.write('')
-    c1, c2 = st.columns([1, 13], vertical_alignment='center')
-    c1.image(st.session_state.opponent_icon)
-    c2.markdown(f'<b class="villain-title-font">{opponent}</b>', unsafe_allow_html=True)
-    st.divider()
-    c1, c2, c3 = st.columns(3)
+                        else:
+                            st.error(f"Invalid Deck Code: {deck_code}")
+        st.write('')
+        c1, c2 = st.columns([1, 13], vertical_alignment='center')
+        c1.image(st.session_state.opponent_icon)
+        c2.markdown(f'<b class="villain-title-font">{opponent}</b>', unsafe_allow_html=True)
+        st.divider()
+        c1, c2, c3 = st.columns(3)
 
-    c1.subheader("First Player")
-    c2.subheader("Keys")
-    c3.subheader("Winner")
-    if starting_player == opponent:
-        second_player = player
-    elif starting_player == player:
-        second_player = opponent
-    else:
-        second_player = None
-
-    game_log = st.session_state.game_data['Game Log'][0]
-
-    winner = st.session_state.game_data['Winner'][0]
-
-    if starting_player == player:
-        c1.markdown(f'<b class="hero-font">{starting_player}</b>', unsafe_allow_html=True)
-    else:
-        c1.markdown(f'<b class="villain-font">{starting_player}</b>', unsafe_allow_html=True)
-
-    c2.markdown(f'<b class="hero-font">{game_log[player]["keys"][-1]}</b><b class="plain-font">-</b><b class="villain-font">{game_log[opponent]["keys"][-1]}</b>', unsafe_allow_html=True)
-
-    if winner == player:
-        c3.markdown(f'<b class="hero-font">{winner}</b>', unsafe_allow_html=True)
-    else:
-        c3.markdown(f'<b class="villain-font">{winner}</b>', unsafe_allow_html=True)
-    st.write(' ')
-    st.write(' ')
-    st.write(' ')
-    with st.spinner('Analyzing game data...'):
-        if 'settings' in st.session_state and 'high_contrast' in st.session_state.settings:
-            high_contrast = st.session_state.settings['high_contrast']
+        c1.subheader("First Player")
+        c2.subheader("Keys")
+        c3.subheader("Winner")
+        if starting_player == opponent:
+            second_player = player
+        elif starting_player == player:
+            second_player = opponent
         else:
-            high_contrast = False
-        game_df, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, player_card_data, opponent_card_data = graphing.analyze_game(player, st.session_state.game_data, high_contrast=high_contrast)
+            second_player = None
+
+        game_log = st.session_state.game_data['Game Log'][0]
+
+        winner = st.session_state.game_data['Winner'][0]
+
+        if starting_player == player:
+            c1.markdown(f'<b class="hero-font">{starting_player}</b>', unsafe_allow_html=True)
+        else:
+            c1.markdown(f'<b class="villain-font">{starting_player}</b>', unsafe_allow_html=True)
+
+        c2.markdown(f'<b class="hero-font">{game_log[player]["keys"][-1]}</b><b class="plain-font">-</b><b class="villain-font">{game_log[opponent]["keys"][-1]}</b>', unsafe_allow_html=True)
+
+        if winner == player:
+            c3.markdown(f'<b class="hero-font">{winner}</b>', unsafe_allow_html=True)
+        elif winner == opponent:
+            c3.markdown(f'<b class="villain-font">{winner}</b>', unsafe_allow_html=True)
+        else:
+            with c3.popover('Add Winner'):
+                st.write("Select Winner")
+                p_cols = st.columns([3, 1])
+                new_winner = p_cols[0].selectbox("", [player, opponent], label_visibility='collapsed')
+                if p_cols[1].button("➤", key='submit_winner'):
+                    if database.update_game_winner(st.session_state.game_id, new_winner):
+                        st.success(f"Winner Updated: {new_winner}")
+                    else:
+                        st.error(f"Error Updating Winner Info")
+
+    st.write(' ')
+    st.write(' ')
+    st.write(' ')
+    if 'settings' in st.session_state and 'high_contrast' in st.session_state.settings:
+        high_contrast = st.session_state.settings['high_contrast']
+    else:
+        high_contrast = False
+    game_df, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, advantage_charts, player_card_data, opponent_card_data = graphing.analyze_game(player, st.session_state.game_data, high_contrast=high_contrast)
     if not game_df.empty:
         length = len(game_df) - 1
         game_df['Actual'] = (length - pd.Series(game_df.index)) / 2
-    c1, c2 = st.columns(2)
-    c1.subheader("Total Amber Value")
-    c1.line_chart(
-        game_df,
-        x=None,
-        y=['Player Amber', 'Opponent Amber'],
-        x_label='Turn',
-        y_label='Amber Value',
-        color=[(255, 75, 75), (96, 180, 255)]
-    )
+        game_df['Amber Advantage'] = game_df['Player Amber'] - game_df['Opponent Amber']
+        game_df['Player Amber Advantage'] = game_df['Amber Advantage'].apply(lambda x: max(0, x))
+        game_df['Opponent Amber Advantage'] = game_df['Amber Advantage'].apply(lambda x: max(0, x))
 
-    c2.subheader("Total Cards Played")
-    c2.line_chart(
-        game_df,
-        x=None,
-        y=['Player Cards', 'Opponent Cards'],
-        x_label='Turn',
-        y_label='Cards Played',
-        color=[(255, 75, 75), (96, 180, 255)]
-    )
+    with tab_2:
+        c1, c2 = st.columns(2)
 
-    c1.subheader("Prediction")
-    if winner == player:
-        actual_color = (96, 180, 255, 0.5)
-    elif winner == opponent:
-        actual_color = (255, 75, 75, 0.5)
-    else:
-        actual_color = (248, 223, 101, 0.5)
-
-    c1.line_chart(
-        game_df,
-        x=None,
-        y=['Actual', 'Player Prediction', 'Opponent Prediction'],
-        x_label='Turn',
-        y_label='Turns to Win',
-        color=[actual_color, (255, 75, 75), (96, 180, 255)]
-    )
-
-    c2.subheader("Creatures")
-    c2.line_chart(
-        game_df,
-        x=None,
-        y=['Player Creatures', 'Opponent Creatures'],
-        x_label='Turn',
-        y_label='Creatures',
-        color=[(255, 75, 75), (96, 180, 255)]
-    )
-
-    c1.subheader("Amber Delta")
-    c1.line_chart(
-        game_df,
-        x=None,
-        y=['Player Delta', 'Opponent Delta'],
-        x_label='Turn',
-        y_label='Delta',
-        color=[(255, 75, 75), (96, 180, 255)]
-    )
-
-    c2.subheader("Reap Rate")
-    c2.line_chart(
-        game_df,
-        x=None,
-        y=['Player Reap Rate', 'Opponent Reap Rate'],
-        x_label='Turn',
-        y_label='Reap Rate',
-        color=[(255, 75, 75), (96, 180, 255)]
-    )
-
-    c1.subheader("Amber Defense")
-    c1.line_chart(
-        game_df,
-        x=None,
-        y=['Player Amber Defense', 'Opponent Amber Defense'],
-        x_label='Turn',
-        y_label='Amber Defense (%)',
-        color=[(255, 75, 75), (96, 180, 255)]
-    )
-
-    c2.subheader("Creature Survival Rate")
-    c2.line_chart(
-        game_df,
-        x=None,
-        y=['Player Survival Rate', 'Opponent Survival Rate'],
-        x_label='Turn',
-        y_label='Survival Rate (%)',
-        color=[(255, 75, 75), (96, 180, 255)]
-    )
-
-    if 'Tide' in game_df.columns:
-        st.subheader('Tide')
-        st.line_chart(
-            game_df,
-            x=None,
-            y=['Tide'],
-            x_label='Turn',
-            y_label='Tide',
-            color=[(96, 180, 255)]
-        )
-
-    if 'Player Tokens' in game_df.columns and 'Opponent Tokens' in game_df.columns and (game_df['Player Tokens'].gt(0).any() or game_df['Opponent Tokens'].gt(0).any()):
-        st.subheader('Tokens')
-        st.line_chart(
-            game_df,
-            x=None,
-            y=['Player Tokens', 'Opponent Tokens'],
-            x_label='Turn',
-            y_label='Tokens Generated',
-            color=[(255, 75, 75), (96, 180, 255)]
-        )
-    elif 'Player Tokens' in game_df.columns and game_df['Player Tokens'].gt(0).any():
-        st.subheader('Tokens')
-        st.line_chart(
-            game_df,
-            x=None,
-            y=['Player Tokens'],
-            x_label='Turn',
-            y_label='Tokens Generated',
-            color=[(96, 180, 255)]
-        )
-    elif 'Opponent Tokens' in game_df.columns and game_df['Opponent Tokens'].gt(0).any():
-        st.subheader('Tokens')
-        st.line_chart(
-            game_df,
-            x=None,
-            y=['Opponent Tokens'],
-            x_label='Turn',
-            y_label='Tokens Generated',
-            color=[(255, 75, 75)]
-        )
-
-    c1, c2 = st.columns(2)
-    c1.subheader("Player Amber Sources")
-    c1.plotly_chart(player_amber_sources, use_container_width=True)
-    c2.subheader("Opponent Amber Sources")
-    c2.plotly_chart(opponent_amber_sources, use_container_width=True)
-
-    c1.subheader("Player House Calls")
-    c1.plotly_chart(player_house_calls, use_container_width=True)
-    c2.subheader("Opponent House Calls")
-    c2.plotly_chart(opponent_house_calls, use_container_width=True)
-
-    st.subheader("Card Data")
-    with st.expander(r"$\textsf{\large Player Card Data}$"):
-        st.dataframe(player_card_data, hide_index=True)
-
-    with st.expander(r"$\textsf{\large Opponent Card Data}$"):
-        st.dataframe(opponent_card_data, hide_index=True)
-
-    if 'expand_all' not in st.session_state:
-        st.session_state.expand_all = False
-
-    def expand_turns():
-        if not st.session_state.expand_all:
-            st.session_state.expand_all = True
+        if winner == player:
+            actual_color = (96, 180, 255, 0.5)
+        elif winner == opponent:
+            actual_color = (255, 75, 75, 0.5)
         else:
+            actual_color = (248, 223, 101, 0.5)
+
+        base_colors = [(255, 75, 75), (96, 180, 255)]
+        prediction_colors = [actual_color] + base_colors
+
+        chart_dict = {
+            "Total Amber Value": {
+                'y_values': ['Player Amber', 'Opponent Amber'],
+                'y_label': 'Amber Value',
+                'color': base_colors,
+            },
+            "Total Cards Played": {
+                'y_values': ['Player Cards', 'Opponent Cards'],
+                'y_label': 'Cards Played',
+                'color': base_colors,
+            },
+            "Prediction": {
+                'y_values': ['Actual', 'Player Prediction', 'Opponent Prediction'],
+                'y_label': 'Turns to Win',
+                'color': prediction_colors,
+            },
+            "Creatures": {
+                'y_values': ['Player Creatures', 'Opponent Creatures'],
+                'y_label': 'Creatures',
+                'color': base_colors,
+            },
+            "Amber Delta": {
+                'y_values': ['Player Delta', 'Opponent Delta'],
+                'y_label': 'Delta',
+                'color': base_colors,
+            },
+            "Reap Rate": {
+                'y_values': ['Player Reap Rate', 'Opponent Reap Rate'],
+                'y_label': 'Reap Rate (%)',
+                'color': base_colors,
+            },
+            "Amber Defense": {
+                'y_values': ['Player Amber Defense', 'Opponent Amber Defense'],
+                'y_label': 'Amber Defense (%)',
+                'color': base_colors,
+            },
+            "Creature Survival Rate": {
+                'y_values': ['Player Survival Rate', 'Opponent Survival Rate'],
+                'y_label': 'Survival Rate (%)',
+                'color': base_colors,
+            },
+        }
+
+        for i, chart in enumerate(chart_dict.keys()):
+            if i % 2 == 0:
+                col = c1
+            else:
+                col = c2
+
+            col.subheader(chart)
+            col.line_chart(
+                game_df,
+                x=None,
+                y=chart_dict[chart]['y_values'],
+                x_label='Turn',
+                y_label=chart_dict[chart]['y_label'],
+                color=chart_dict[chart]['color']
+            )
+
+        if 'Tide' in game_df.columns:
+            st.subheader('Tide')
+            st.line_chart(
+                game_df,
+                x=None,
+                y=['Tide'],
+                x_label='Turn',
+                y_label='Tide',
+                color=[(96, 180, 255)]
+            )
+
+        if 'Player Tokens' in game_df.columns and 'Opponent Tokens' in game_df.columns and (game_df['Player Tokens'].gt(0).any() or game_df['Opponent Tokens'].gt(0).any()):
+            st.subheader('Tokens')
+            st.line_chart(
+                game_df,
+                x=None,
+                y=['Player Tokens', 'Opponent Tokens'],
+                x_label='Turn',
+                y_label='Tokens Generated',
+                color=[(255, 75, 75), (96, 180, 255)]
+            )
+        elif 'Player Tokens' in game_df.columns and game_df['Player Tokens'].gt(0).any():
+            st.subheader('Tokens')
+            st.line_chart(
+                game_df,
+                x=None,
+                y=['Player Tokens'],
+                x_label='Turn',
+                y_label='Tokens Generated',
+                color=[(96, 180, 255)]
+            )
+        elif 'Opponent Tokens' in game_df.columns and game_df['Opponent Tokens'].gt(0).any():
+            st.subheader('Tokens')
+            st.line_chart(
+                game_df,
+                x=None,
+                y=['Opponent Tokens'],
+                x_label='Turn',
+                y_label='Tokens Generated',
+                color=[(255, 75, 75)]
+            )
+
+        c1, c2 = st.columns(2)
+        c1.subheader("Player Amber Sources")
+        c1.plotly_chart(player_amber_sources, use_container_width=True)
+        c2.subheader("Opponent Amber Sources")
+        c2.plotly_chart(opponent_amber_sources, use_container_width=True)
+
+        c1.subheader("Player House Calls")
+        c1.image(player_house_calls)
+        c2.subheader("Opponent House Calls")
+        c2.image(opponent_house_calls)
+
+        st.subheader("Card Data")
+        with st.expander(r"$\textsf{\large Player Card Data}$"):
+            st.dataframe(player_card_data, hide_index=True)
+
+        with st.expander(r"$\textsf{\large Opponent Card Data}$"):
+            st.dataframe(opponent_card_data, hide_index=True)
+
+    with tab_3:
+        c1, c2 = st.columns(2)
+
+        advantage_stats = ['Amber', 'Cards', 'Prediction', 'Creatures', 'Delta', 'Reap Rate', 'Amber Defense', 'Survival Rate']
+        advantage_chart_list = [f'{s} Advantage' for s in advantage_stats]
+
+        for i, advantage in enumerate(advantage_chart_list):
+            if i % 2 == 0:
+                col = c1
+            else:
+                col = c2
+
+            col.subheader(advantage)
+            col.plotly_chart(advantage_charts[i])
+
+    with tab_4:
+        if 'expand_all' not in st.session_state:
             st.session_state.expand_all = False
 
-    st.write('')
-    c1, c2 = st.columns([6, 1])
-    c1.subheader("Turns")
-    if st.session_state.expand_all:
-        exp_button_string = "Collapse All"
-    else:
-        exp_button_string = "Expand All"
-    c2.button(exp_button_string, on_click=expand_turns)
+        def expand_turns():
+            if not st.session_state.expand_all:
+                st.session_state.expand_all = True
+            else:
+                st.session_state.expand_all = False
 
-    if ["Key ", " phase -  ", opponent] in st.session_state.game_data['Player Frags'][0]:
-        opponent_messages = st.session_state.game_data['Player Frags'][0]
-        player_messages = st.session_state.game_data['Opponent Frags'][0]
-    else:
-        player_messages = st.session_state.game_data['Player Frags'][0]
-        opponent_messages = st.session_state.game_data['Opponent Frags'][0]
+        st.write('')
+        c1, c2 = st.columns([6, 1])
+        c1.subheader("Turns")
+        if st.session_state.expand_all:
+            exp_button_string = "Collapse All"
+        else:
+            exp_button_string = "Expand All"
+        c2.button(exp_button_string, on_click=expand_turns)
 
-    card_name_list = dok_api.card_df['cardTitle'].tolist()
-    card_image_dict = dok_api.card_df.set_index('cardTitle')['cardTitleUrl'].to_dict()
+        if ["Key ", " phase -  ", opponent] in st.session_state.game_data['Player Frags'][0]:
+            opponent_messages = st.session_state.game_data['Player Frags'][0]
+            player_messages = st.session_state.game_data['Opponent Frags'][0]
+        else:
+            player_messages = st.session_state.game_data['Player Frags'][0]
+            opponent_messages = st.session_state.game_data['Opponent Frags'][0]
 
-    with st.spinner('Creating turn replays...'):
+        card_name_list = dok_api.card_df['cardTitle'].tolist()
+        card_image_dict = dok_api.card_df.set_index('cardTitle')['cardTitleUrl'].to_dict()
+
         for t in range(len(game_log[starting_player]['cards_played'])):
             if t % 2 == 0:
                 p = starting_player

@@ -13,9 +13,11 @@ def pull_deck_data(deck_id):
     time.sleep(2.5)
     response = requests.get("https://decksofkeyforge.com/public-api/v3/decks/" + deck_id, headers=headers)
 
-    data = response.json()
-
-    return data
+    try:
+        data = response.json()
+        return data
+    except:
+        print(response)
 
 
 def pull_card_data():
@@ -35,9 +37,10 @@ def pull_card_data():
 @st.cache_resource
 def load_card_data():
     card_data = pd.read_csv("card_log.csv")
-    return card_data
+    cid = card_data.set_index('cardTitle')['cardTitleUrl'].to_dict()
+    return card_data, cid
 
-card_df = load_card_data()
+card_df, card_image_dict = load_card_data()
 
 
 def check_card_type(card_name):

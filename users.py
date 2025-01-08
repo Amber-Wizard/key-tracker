@@ -35,6 +35,7 @@ def new_user(username, password, email, tco_name):
 def get_authenticator():
     user_db = database.get_all_users()
     user_dict = {'usernames': {}}
+    name_conversion_dict = {}
     for user in user_db:
         user_dict['usernames'][user['username']] = {
             'email': user['email'],
@@ -42,7 +43,12 @@ def get_authenticator():
             'password': user['password']
         }
 
+        name_conversion_dict[user['tco_name']] = user['tco_name']
+        if 'aliases' in user:
+            for alias in user['aliases']:
+                name_conversion_dict[alias] = user['tco_name']
+
     auth = stauth.Authenticate(user_dict, st.secrets['mongo']['username'], st.secrets['mongo']['password'])
-    return auth
+    return auth, name_conversion_dict
 
 

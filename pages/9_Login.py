@@ -23,7 +23,7 @@ def custom_validate_name(self, name_entry: str) -> bool:
 
 Validator.validate_name = custom_validate_name
 
-authenticator = users.get_authenticator()
+authenticator, name_conversion_dict = users.get_authenticator()
 
 if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
     if 'login_type' not in st.session_state:

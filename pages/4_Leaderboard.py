@@ -107,9 +107,6 @@ def get_all_elo_scores():
         st.session_state.deck_scores = [i for i in deck_scores if 'games' in i and 'wins' in i and i['games'] > 0]
 
 
-# get_all_elo_scores()
-
-
 c1, c2, c3, c4 = st.columns([22, 1, 1, 1])
 
 c1.title("Leaderboard")
@@ -117,10 +114,11 @@ home = c3.button("🏠")
 if home:
     st.switch_page("Home.py")
 
-c1, c2, c3 = st.columns([4, 1, 1])
+c1, c2, c3, c4 = st.columns([4, 1, 1, 1])
 lb_type = c1.selectbox('', options=['Decks', 'Players'])
 sort_by = c2.selectbox('Sort', options=['Score', 'WR%', 'Games'])
 sort_order = c3.selectbox('Order', options=['Desc', 'Asc'])
+min_games = c4.selectbox('Min. Games', options=[5, 10, 25, 50, 100])
 
 if lb_type == 'Decks':
     if 'deck_scores' not in st.session_state:
@@ -131,6 +129,7 @@ else:
         get_all_elo_scores()
     elo_scores = st.session_state.user_scores
 
+elo_scores = [item for item in elo_scores if int(item['games']) >= min_games]
 
 if sort_order == 'Asc':
     reverse = False
