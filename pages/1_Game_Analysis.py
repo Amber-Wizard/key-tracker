@@ -416,6 +416,7 @@ else:
 
         card_name_list = dok_api.card_df['cardTitle'].tolist()
         card_image_dict = dok_api.card_df.set_index('cardTitle')['cardTitleUrl'].to_dict()
+        card_image_dict = {key.replace("'", "").replace("’", ""): value for key, value in card_image_dict.items()}
 
         for t in range(len(game_log[starting_player]['cards_played'])):
             if t % 2 == 0:
@@ -524,11 +525,12 @@ else:
                     cols = st.columns(max(11, len(hands[max(t-1, 0)])))
 
                     for i, card in enumerate(hands[max(t-1, 0)]):
-                        if card not in card_image_dict:
-                            st.toast(f"Card image not found: {card}")
+                        card_title = card.replace("'", "").replace("’", "")
+                        if card_title not in card_image_dict:
+                            st.toast(f"Card image not found: {card_title}")
                             image_link = None
                         else:
-                            image_link = card_image_dict[card]
+                            image_link = card_image_dict[card_title]
                             try:
                                 cols[i].image(image_link)
                             except:
@@ -552,11 +554,12 @@ else:
                     last_column = 0
                     for card, copies in new_cards_played.items():
                         for _ in range(copies):
-                            if card not in card_image_dict:
-                                st.toast(f"Card image not found: {card}")
+                            card_title = card.replace("'", "").replace("’", "")
+                            if card_title not in card_image_dict:
+                                st.toast(f"Card image not found: {card_title}")
                                 image_link = None
                             else:
-                                image_link = card_image_dict[card]
+                                image_link = card_image_dict[card_title]
                                 try:
                                     cols[last_column].image(image_link)
                                 except:
@@ -568,11 +571,12 @@ else:
                     last_column = card_split_ratio
                     for card, copies in new_cards_discarded.items():
                         for _ in range(copies):
-                            if card not in card_image_dict:
-                                st.toast(f"Card image not found: {card}")
+                            card_title = card.replace("'", "").replace("’", "")
+                            if card_title not in card_image_dict:
+                                st.toast(f"Card image not found: {card_title}")
                                 image_link = None
                             else:
-                                image_link = card_image_dict[card]
+                                image_link = card_image_dict[card_title]
                                 try:
                                     cols[last_column].image(image_link)
                                 except:
@@ -588,11 +592,12 @@ else:
                     last_column = 0
                     for card, copies in new_cards_played.items():
                         for _ in range(copies):
-                            if card not in card_image_dict:
-                                st.toast(f"Card image not found: {card}")
+                            card_title = card.replace("'", "").replace("’", "")
+                            if card_title not in card_image_dict:
+                                st.toast(f"Card image not found: {card_title}")
                                 image_link = None
                             else:
-                                image_link = card_image_dict[card]
+                                image_link = card_image_dict[card_title]
                                 try:
                                     cols[last_column].image(image_link)
                                 except:
@@ -609,11 +614,12 @@ else:
                     last_column = 0
                     for card, copies in new_cards_discarded.items():
                         for _ in range(copies):
-                            if card not in card_image_dict:
-                                st.toast(f"Card image not found: {card}")
+                            card_title = card.replace("'", "").replace("’", "")
+                            if card_title not in card_image_dict:
+                                st.toast(f"Card image not found: {card_title}")
                                 image_link = None
                             else:
-                                image_link = card_image_dict[card]
+                                image_link = card_image_dict[card_title]
                                 try:
                                     cols[last_column].image(image_link)
                                 except:
@@ -649,11 +655,12 @@ else:
                             cols = st.columns(c_number)
 
                             for i, card in enumerate(opponent_artifacts[t]):
-                                if card not in card_image_dict:
-                                    st.toast(f"Card image not found: {card}")
+                                card_title = card.replace("'", "").replace("’", "")
+                                if card_title not in card_image_dict:
+                                    st.toast(f"Card image not found: {card_title}")
                                     image_link = None
                                 else:
-                                    image_link = card_image_dict[card]
+                                    image_link = card_image_dict[card_title]
                                     cols[i].image(image_link)
 
                         if len(opponent_boards[t]) > 0:
@@ -674,11 +681,12 @@ else:
                                     starting_col = 1
 
                             for i, card in enumerate(opponent_boards[t]):
-                                if card not in card_image_dict:
-                                    st.toast(f"Card image not found: {card}")
+                                card_title = card.replace("'", "").replace("’", "")
+                                if card_title not in card_image_dict:
+                                    st.toast(f"Card image not found: {card_title}")
                                     image_link = None
                                 else:
-                                    image_link = card_image_dict[card]
+                                    image_link = card_image_dict[card_title]
                                     cols[round(i+starting_col)].image(image_link)
 
                     if len(opponent_artifacts[t]) + len(opponent_boards[t]) == 0 and len(player_artifacts[t]) + len(player_boards[t]) > 0:
@@ -706,11 +714,12 @@ else:
                                     starting_col = 1
 
                             for i, card in enumerate(player_boards[t]):
-                                if card not in card_image_dict:
-                                    st.toast(f"Card image not found: {card}")
+                                card_title = card.replace("'", "").replace("’", "")
+                                if card_title not in card_image_dict:
+                                    st.toast(f"Card image not found: {card_title}")
                                     image_link = None
                                 else:
-                                    image_link = card_image_dict[card]
+                                    image_link = card_image_dict[card_title]
                                     cols[round(i+starting_col)].image(image_link)
 
                         if len(player_artifacts[t]) > 0:
@@ -718,11 +727,12 @@ else:
                             cols = st.columns(c_number)
 
                             for i, card in enumerate(player_artifacts[t]):
-                                if card not in card_image_dict:
-                                    st.toast(f"Card image not found: {card}")
+                                card_title = card.replace("'", "").replace("’", "")
+                                if card_title not in card_image_dict:
+                                    st.toast(f"Card image not found: {card_title}")
                                     image_link = None
                                 else:
-                                    image_link = card_image_dict[card]
+                                    image_link = card_image_dict[card_title]
                                     cols[i].image(image_link)
 
                     if len(opponent_artifacts[t]) + len(opponent_boards[t]) > 0 and len(player_artifacts[t]) + len(player_boards[t]) > 0:
@@ -743,19 +753,21 @@ else:
                         cols = st.columns(c_number)
 
                         for i, card in enumerate(board):
-                            if card not in card_image_dict:
-                                st.toast(f"Card image not found: {card}")
+                            card_title = card.replace("'", "").replace("’", "")
+                            if card_title not in card_image_dict:
+                                st.toast(f"Card image not found: {card_title}")
                                 image_link = None
                             else:
-                                image_link = card_image_dict[card]
+                                image_link = card_image_dict[card_title]
                                 cols[i].image(image_link)
 
                         for j, card in enumerate(artifact):
-                            if card not in card_image_dict:
-                                st.toast(f"Card image not found: {card}")
+                            card_title = card.replace("'", "").replace("’", "")
+                            if card_title not in card_image_dict:
+                                st.toast(f"Card image not found: {card_title}")
                                 image_link = None
                             else:
-                                image_link = card_image_dict[card]
+                                image_link = card_image_dict[card_title]
                                 if len(artifact) == 1:
                                     cols[c_number-2].image(image_link)
                                 else:
