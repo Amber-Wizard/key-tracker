@@ -645,7 +645,7 @@ else:
                     fb_name = "Opponent Board"
                     sb_name = "Player Board"
 
-                if 'settings' in st.session_state and st.session_state.settings['board_layout'] == 'tco':
+                if 'settings' not in st.session_state or st.session_state.settings['board_layout'] == 'tco':
                     if len(opponent_artifacts[t]) + len(opponent_boards[t]) > 0:
                         st.markdown(f'<b class="plain-font">Opponent Board</b>', unsafe_allow_html=True)
                     with st.container(border=True):
