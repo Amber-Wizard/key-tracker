@@ -242,7 +242,7 @@ st.subheader("Featured Games")
 with st.expander("Select Game"):
     if len(st.session_state.featured_game_log) > 0:
 
-        featured_game_choice = st.dataframe(st.session_state.featured_game_log[['Date', 'Player', 'Opponent', 'Deck', 'Set', 'SAS', 'Opponent Deck', 'Op. Set', 'Op. SAS', 'Likes']], on_select='rerun', selection_mode='single-row', hide_index=True)
+        featured_game_choice = st.dataframe(st.session_state.featured_game_log[['Date', 'Player', 'Opponent', 'Deck', 'Opponent Deck', 'Likes']], on_select='rerun', selection_mode='single-row', hide_index=True)
     else:
         featured_game_choice = None
         st.write("No featured games.")
@@ -308,6 +308,22 @@ else:
     st.divider()
     st.subheader("Analyze Deck")
     with st.expander("Select Deck"):
+        # st.write('Filter Games')
+        # c1, c2, c3, c4 = st.columns([1, 1, 1, 1], vertical_alignment='bottom')
+        # sas_min = c1.text_input('SAS Min.')
+        # if sas_min:
+        #     try:
+        #         sas_min = int(sas_min)
+        #     except:
+        #         sas_min = 0
+        #
+        # sas_max = c2.text_input('SAS Max.')
+        # if sas_max:
+        #     try:
+        #         sas_max = int(sas_max)
+        #     except:
+        #         sas_max = 1000
+
         if st.session_state.deck_log is not None and not st.session_state.deck_log.empty:
             deck_choice = st.dataframe(st.session_state.deck_log[['Deck', 'Games', 'Win-Loss', 'Winrate']], on_select='rerun', selection_mode='single-row', hide_index=True)
         else:
@@ -329,6 +345,16 @@ else:
                     del st.session_state['deck_data']
                 if 'share_id' in st.session_state:
                     del st.session_state['share_id']
+                # if sas_min:
+                #     st.session_state.sas_min = sas_min
+                # else:
+                #     if 'sas_min' in st.session_state:
+                #         del st.session_state['sas_min']
+                # if sas_max:
+                #     st.session_state.sas_max = sas_max
+                # else:
+                #     if 'sas_max' in st.session_state:
+                #         del st.session_state['sas_max']
 
                 st.session_state.deck_selection = st.session_state.deck_log.iloc[selected_deck]
                 deck = st.session_state.deck_selection['Deck'].iat[0][0]

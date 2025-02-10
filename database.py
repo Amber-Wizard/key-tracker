@@ -552,24 +552,26 @@ def get_featured_game_log():
         game_data = get_game(game_id)
 
         if game_data:
+            featured_games.at[idx, 'Date'] = game_data.get('Date', None)
             for attribute in ['Player', 'Opponent', 'Winner', 'Deck', 'Opponent Deck']:
-                featured_games.at[idx, attribute] = game_data.get(attribute, [''])[0]
-            deck_id = game_data.get('Deck Link', [''])[0].split('/')[-1]
-            dok_data = get_dok_cache_deck_id(deck_id)
-            featured_games.at[idx, 'SAS'] = dok_data['Data']['deck']['sasRating']
-            featured_games.at[idx, 'Set'] = set_conversion_dict[dok_data['Data']['deck']['expansion']][0]
+                featured_games.at[idx, attribute] = game_data.get(attribute, [''])
+            # deck_id = game_data.get('Deck Link', [''])[0].split('/')[-1]
+            # dok_data = get_dok_cache_deck_id(deck_id)
+            # featured_games.at[idx, 'SAS'] = dok_data['Data']['deck']['sasRating']
+            # featured_games.at[idx, 'Set'] = set_conversion_dict[dok_data['Data']['deck']['expansion']][0]
 
-            op_deck_id = game_data.get('Opponent Deck Link', [''])[0].split('/')[-1]
-            op_dok_data = get_dok_cache_deck_id(op_deck_id)
-            featured_games.at[idx, 'Op. SAS'] = op_dok_data['Data']['deck']['sasRating']
-            featured_games.at[idx, 'Op. Set'] = set_conversion_dict[op_dok_data['Data']['deck']['expansion']][0]
+            # op_deck_id = game_data.get('Opponent Deck Link', [''])[0].split('/')[-1]
+            # op_dok_data = get_dok_cache_deck_id(op_deck_id)
+            # featured_games.at[idx, 'Op. SAS'] = op_dok_data['Data']['deck']['sasRating']
+            # featured_games.at[idx, 'Op. Set'] = set_conversion_dict[op_dok_data['Data']['deck']['expansion']][0]
 
     if 'Date' in featured_games.columns:
         featured_games = featured_games.dropna(subset=['Date'])
         sorted_games = featured_games.sort_values(by=['Likes', 'Date'], ascending=[False, False])
         return sorted_games
     else:
-        return []
+        print('No Date Column Present')
+        return featured_games
 
 
 def like_game(gid, user):

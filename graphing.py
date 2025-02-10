@@ -926,9 +926,9 @@ def make_house_image(calls, player_graph=True):
 
     sorted_strings = sorted(houses, key=lambda z: house_order.index(z))
     if len(houses) == 2:
-        minus_factor = 1
+        minus_factor = 0
     elif len(houses) == 1:
-        minus_factor = 2
+        minus_factor = 0
     else:
         minus_factor = 0
     resulting_dict = {s: minus_factor+idx for idx, s in enumerate(sorted_strings)}
@@ -936,12 +936,12 @@ def make_house_image(calls, player_graph=True):
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.set_facecolor(bg_color)
 
-    adjustment_interval = 1/(len(houses)+1)
+    adjustment_interval = 1/(max(len(houses)+1, 4))
 
     for h, x in zip(calls, x_positions):
         ax.vlines(x, 0.15, 1-adjustment_interval*(resulting_dict[h]+1), color='gray', linewidth=2, linestyles='dashed')
 
-    y_values = [1 - (i + 1) * adjustment_interval for i in range(len(houses))]
+    y_values = [1 - (i + 1) * adjustment_interval for i in range(max(len(houses), 3))]
     for y in y_values:
         ax.hlines(y, 0.02, 1.05, color='lightgray', linewidth=3)
 
