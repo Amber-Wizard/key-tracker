@@ -567,7 +567,7 @@ def get_featured_game_log():
 
     if 'Date' in featured_games.columns:
         featured_games = featured_games.dropna(subset=['Date'])
-        sorted_games = featured_games.sort_values(by=['Likes', 'Date'], ascending=[False, False])
+        sorted_games = featured_games.sort_values(by=['Date', 'Likes'], ascending=[False, False])
         return sorted_games
     else:
         print('No Date Column Present')
