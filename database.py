@@ -213,9 +213,8 @@ def get_user_games(username, aliases=None, trim_lists=False):
         except:
             return 0
 
-    df['Turns'] = df['Game Log'].apply(count_turns)
-
-    if len(df) > 0:
+    if 'Turns' in df.columns and 'Game Log' in df.columns and len(df) > 0:
+        df['Turns'] = df['Game Log'].apply(count_turns)
         try:
             sorted_df = df.sort_values(by='Date', ascending=False)
         except:
