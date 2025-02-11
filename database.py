@@ -213,8 +213,9 @@ def get_user_games(username, aliases=None, trim_lists=False):
         except:
             return 0
 
-    if 'Turns' in df.columns and 'Game Log' in df.columns and len(df) > 0:
+    if 'Game Log' in df.columns and len(df) > 0:
         df['Turns'] = df['Game Log'].apply(count_turns)
+
         try:
             sorted_df = df.sort_values(by='Date', ascending=False)
         except:
@@ -230,7 +231,6 @@ def get_user_games(username, aliases=None, trim_lists=False):
             sorted_df['Format'] = [['Archon']] * len(sorted_df)
         if trim_lists:
             sorted_df = sorted_df.applymap(lambda x: x[0] if isinstance(x, list) and len(x) == 1 else x)
-
         return sorted_df
     else:
         return None
