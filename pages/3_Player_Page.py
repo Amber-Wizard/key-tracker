@@ -37,6 +37,16 @@ achievement_master_dict = {
         'description': 'Discard ~ cards in a single game',
         'image_links': ['https://i.postimg.cc/NMdgc2G6/junk-restoration-L1.png', 'https://i.postimg.cc/0j3P6gwr/junk-restoration-L2.png', 'https://i.postimg.cc/PrpdgqgD/junk-restoration-L3.png', 'https://i.postimg.cc/jdpRtbTF/junk-restoration-L4.png', 'https://i.postimg.cc/FFn9CSBm/junk-restoration-L5.png'],
     },
+    'Labwork': {
+        'levels': [5, 10, 15, 20, 25],
+        'description': 'Have ~ cards in your archives',
+        'image_links': ['https://i.postimg.cc/NMH3tM7d/labwork-L1.png', 'https://i.postimg.cc/Y07swxSS/labwork-L2.png', 'https://i.postimg.cc/1zgT0tTy/labwork-L3.png', 'https://i.postimg.cc/mr0nm4fC/labwork-L4.png', 'https://i.postimg.cc/760WcRwc/labwork-L5.png'],
+    },
+    'Noname': {
+        'levels': [5, 10, 15, 20, 25],
+        'description': 'Have ~ cards purged',
+        'image_links': ['https://i.postimg.cc/hv9hXKgr/noname-L1.png', 'https://i.postimg.cc/L6pnrgB0/noname-L2.png', 'https://i.postimg.cc/Hs9VHW6W/noname-L3.png', 'https://i.postimg.cc/4x4n3C06/noname-L4.png', 'https://i.postimg.cc/3xLN4SMP/noname-L5.png'],
+    },
     # 'Brobnar Loyalist': {
     #     'levels': [5, 10, 25, 50, 100],
     #     'description': 'Call house Brobnar ~ turns in a row',
@@ -50,7 +60,7 @@ achievement_master_dict = {
 }
 
 achievement_sections = {
-    'Game': ['Library Card', 'Junk Restoration', 'Amberologist', 'A Gift of Amber', 'Too Much to Protect', 'Reap or Sow'],
+    'Game': ['Library Card', 'Junk Restoration', 'Amberologist', 'A Gift of Amber', 'Too Much to Protect', 'Reap or Sow', 'Labwork', 'Noname'],
     # 'House': ['Brobnar Loyalist']
 }
 
@@ -315,6 +325,26 @@ else:
                 return 5 - j, cards_discarded
         return 0, cards_discarded
 
+    def labwork(player_log, opponent_log):
+        if 'archives_count' in player_log:
+            archive_max = max(player_log['archives_count'])
+        else:
+            archive_max = 0
+        for j in range(5):
+            if archive_max >= achievement_master_dict['Labwork']['levels'][4-j]:
+                return 5-j, archive_max
+        return 0, archive_max
+
+    def noname(player_log, opponent_log):
+        if 'purged_count' in player_log:
+            archive_max = max(player_log['purged_count'])
+        else:
+            archive_max = 0
+        for j in range(5):
+            if archive_max >= achievement_master_dict['Noname']['levels'][4-j]:
+                return 5-j, archive_max
+        return 0, archive_max
+
     # def house_loyalist(game_log):
     #     house_calls = game_log[name]['house_calls']
     #     if len(house_calls) >= 3 and all(house == house_calls[0] for house in house_calls):
@@ -327,6 +357,8 @@ else:
         'Too Much to Protect': too_much_to_protect,
         'Library Card': library_card,
         'Junk Restoration': junk_restoration,
+        'Labwork': labwork,
+        'Noname': noname,
         # 'House Loyalist': house_loyalist,
     }
 
@@ -470,7 +502,7 @@ else:
 
         st.write('')
         if st.button('Save'):
-            setting_dict = {'game_data_use': game_data_use, 'show_decks': show_decks, 'show_player': show_player, 'high_contrast': contrast_amber_charts}
+            setting_dict = {'game_data_use': game_data_use, 'show_decks': show_decks, 'show_player': show_player}
             if compact_turn_display:
                 setting_dict['board_layout'] = 'compact'
             else:
