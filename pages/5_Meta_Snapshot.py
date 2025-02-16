@@ -147,7 +147,7 @@ def process_meta_games():
         # Get Dok Data
         dok_data_dict = {}
         set_data_dict = {k: 0 for k in [ls[0] for ls in database.set_conversion_dict.values()]}
-        set_win_dict = {k: 0 for k in [ls[0] for ls in database.set_conversion_dict.values()]}
+        set_win_dict = {k: {'wins': 0, 'losses': 0} for k in [ls[0] for ls in database.set_conversion_dict.values()]}
         house_data_dict = {k.title() if k != 'staralliance' else 'StarAlliance': 0 for k in graphing.house_colors.keys()}
         house_win_dict = {k.title() if k != 'staralliance' else 'StarAlliance': 0 for k in graphing.house_colors.keys()}
         cards_played_dict = {}
@@ -188,7 +188,9 @@ def process_meta_games():
                         else:
                             card_win_dict[card] = 1
 
+            player_set, opponent_set = None, None
             for i, deck_id in enumerate([row['Opponent Deck Link'][0].split('/')[-1], row['Deck Link'][0].split('/')[-1]]):
+                dok_data = None
                 if deck_id and deck_id not in dok_data_dict:
                     dok_data = database.get_dok_cache_deck_id(deck_id)
                     if dok_data:
@@ -200,16 +202,14 @@ def process_meta_games():
                     # Calculate Sets Played
                     expansion = dok_data['Data']['deck']['expansion']
                     converted_expansion = database.set_conversion_dict[expansion][0]
+                    if i == 0:
+                        opponent_set = converted_expansion
+                    else:
+                        player_set = converted_expansion
                     if converted_expansion in set_data_dict:
                         set_data_dict[converted_expansion] += 1
                     else:
                         set_data_dict[converted_expansion] = 1
-                    if opponent_won and i == 0 or not opponent_won and i == 1:
-                        converted_expansion = database.set_conversion_dict[expansion][0]
-                        if converted_expansion in set_win_dict:
-                            set_win_dict[converted_expansion] += 1
-                        else:
-                            set_win_dict[converted_expansion] = 1
 
                     # Calculate Houses Played
                     houses_and_cards = dok_data['Data']['deck']['housesAndCards']
@@ -225,6 +225,30 @@ def process_meta_games():
                             else:
                                 house_win_dict[house] = 1
 
+            if player_set != opponent_set:
+                if opponent_won:
+                    if opponent_set:
+                        if opponent_set in set_win_dict:
+                            set_win_dict[opponent_set]['wins'] += 1
+                        else:
+                            set_win_dict[opponent_set]['wins'] = 1
+                    if player_set:
+                        if player_set in set_win_dict:
+                            set_win_dict[player_set]['losses'] += 1
+                        else:
+                            set_win_dict[player_set]['losses'] = 1
+                else:
+                    if opponent_set:
+                        if opponent_set in set_win_dict:
+                            set_win_dict[opponent_set]['losses'] += 1
+                        else:
+                            set_win_dict[opponent_set]['losses'] = 1
+                    if player_set:
+                        if player_set in set_win_dict:
+                            set_win_dict[player_set]['wins'] += 1
+                        else:
+                            set_win_dict[player_set]['wins'] = 1
+
         cards_played_df = pd.DataFrame(list(cards_played_dict.items()), columns=['Card', 'Played'])
         cards_played_df = cards_played_df.sort_values(by='Played', ascending=False)
 
@@ -236,6 +260,8 @@ def process_meta_games():
         st.session_state.meta_snapshot['house_win_dict'] = house_win_dict
         st.session_state.meta_snapshot['cards_played_df'] = cards_played_df
         st.session_state.meta_snapshot['card_win_dict'] = card_win_dict
+
+        database.log_meta_sets(set_data_dict)
 
 if 'recent_games' not in st.session_state:
     get_meta_games()
@@ -288,7 +314,7 @@ with st.container(border=True):
     for i, h in enumerate(set_data_dict.keys()):
         cols[i].markdown(f'<b class="plain-font">  {h}</b>', unsafe_allow_html=True)
         if set_data_dict[h] != 0:
-            winrate = round(100 * set_win_dict[h] / set_data_dict[h])
+            winrate = round(100 * set_win_dict[h]['wins'] / (set_win_dict[h]['wins'] + set_win_dict[h]['losses']))
         else:
             winrate = 0
 
