@@ -30,7 +30,8 @@ def get_client():
     password = st.secrets['mongo']['password']
     mongo_string = f'mongodb+srv://{username}:{password}@keytracker.ztswoqe.mongodb.net/?retryWrites=true&w=majority&appName=KeyTracker'
     c = pymongo.MongoClient(mongo_string, serverSelectionTimeoutMS=5000)
-    db_list = ['Users', 'Games', 'Dok Data', 'ELO', 'Featured Games']
+    print('Connected to database.')
+    db_list = ['Users', 'Games', 'Dok Data', 'ELO', 'Featured Games', 'Snapshot']
     db_dict = {db: c['KeyTracker'][db] for db in db_list}
     return c, db_dict
 
@@ -600,6 +601,7 @@ def get_all_recent_games(days=30, data_share=True):
     recent_games = collection.find({"Date": {"$gte": start_date}})
 
     recent_games_df = to_dataframe(recent_games)
+    recent_games_df = recent_games_df.loc[recent_games_df['Format'].str[0] == 'Archon']
     if data_share:
         private_data_users = list(get_private_data_users())
         private_data_username_list = [p['tco_name'] for p in private_data_users]
@@ -611,6 +613,23 @@ def get_all_recent_games(days=30, data_share=True):
         recent_games_df = recent_games_df[~recent_games_df['Player'].isin(private_data_username_list)]
 
     return recent_games_df
+
+
+def log_meta_sets(set_data):
+    db = get_database('Snapshot')
+    query = {'type': 'set data'}
+    update_data = {'$set': {'Data': set_data}}
+    inserted_result = db.update_one(query, update_data, upsert=True)
+
+    return inserted_result
+
+
+def get_meta_sets():
+    db = get_database('Snapshot')
+    query = {'type': 'set data'}
+    data = db.find_one(query)
+
+    return data
 
 
 def update_dates():
