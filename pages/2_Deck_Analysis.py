@@ -489,7 +489,10 @@ else:
                     legacy_wins += legacy_set_wins
                     legacy_losses += legacy_set_losses
 
-            legacy_winrate = round(100 * legacy_wins / (legacy_wins + legacy_losses))
+            if legacy_wins + legacy_losses > 0:
+                legacy_winrate = round(100 * legacy_wins / (legacy_wins + legacy_losses))
+            else:
+                legacy_winrate = '--'
 
             metadata = database.get_meta_sets()
             weighted_avg_winrate = round(sum(set_winrate_df["Winrate"] * set_winrate_df["Opponent Set"].map(metadata['Data'])) / sum(set_winrate_df["Opponent Set"].map(metadata['Data'])))
@@ -508,7 +511,9 @@ else:
                 c3.markdown(f'<b class="hero-font">   {winrate}%</b>', unsafe_allow_html=True)
             elif winrate < 50:
                 c3.markdown(f'<b class="villain-font">   {winrate}%</b>', unsafe_allow_html=True)
-            if legacy_winrate >= 50:
+            if legacy_winrate == '--':
+                c4.markdown(f'<b class="plain-font">   {legacy_winrate}%</b>', unsafe_allow_html=True)
+            elif legacy_winrate >= 50:
                 c4.markdown(f'<b class="hero-font">   {legacy_winrate}%</b>', unsafe_allow_html=True)
             elif legacy_winrate < 50:
                 c4.markdown(f'<b class="villain-font">   {legacy_winrate}%</b>', unsafe_allow_html=True)

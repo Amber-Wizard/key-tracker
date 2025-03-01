@@ -226,7 +226,7 @@ def calculate_ex_amber(player_data, opponent_data, first_player, opponent_name, 
     op_exa = []
     player_exa = []
 
-    player_tav, opponent_tav, p_amber_gained, op_amber_gained, p_amber_defense, op_amber_defense = calculate_tav(player_data, opponent_data)
+    player_tav, opponent_tav, p_amber_gained, op_amber_gained, p_amber_defense, op_amber_defense, p_forge_rate, op_forge_rate = calculate_tav(player_data, opponent_data)
     turns = len(opponent_data['amber'])
     player_delta = calculate_amber_delta(player_data, games)
     player_creatures = player_data['creatures']
@@ -279,7 +279,7 @@ def analyze_deck(username, log, games, high_contrast=False):
 
 
 def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_name, games, high_contrast=False):
-    player_tav, opponent_tav, p_amber_gained, op_amber_gained, p_amber_defense, op_amber_defense = calculate_tav(player_data, opponent_data)
+    player_tav, opponent_tav, p_amber_gained, op_amber_gained, p_amber_defense, op_amber_defense, p_forge_rate, op_forge_rate = calculate_tav(player_data, opponent_data)
     player_ttw, player_delta, player_reap_rate = calculate_ttw(player_tav, player_data, op_amber_defense[-1])
     opponent_ttw, opponent_delta, opponent_reap_rate = calculate_ttw(opponent_tav, opponent_data, p_amber_defense[-1])
     p_values = [player_data['total_amber_effect'][-1], player_data['total_steal'][-1], player_data['total_amber_reaped'][-1], player_data['total_amber_icons'][-1]]
@@ -298,62 +298,62 @@ def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_n
     opponent_survival_rate = calculate_deck_survival_rate(opponent_data)
     normalized_turns = normalize_turns(player_data['turns'])
     # Precompute Reap Advantage
-    reap_advantage = [
-        min(25, max(1,
-                    (18 - (opponent_amber or 0)) /
-                    (1 - (player_defense or 0) / 100) *
-                    ((opponent_creatures or 0) * (opponent_reap_rate or 0) + (opponent_delta or 0))
-                    )) -
-        min(25, max(1,
-                    (18 - ((player_amber or 0) + 1)) /
-                    (1 - (opponent_defense or 0) / 100) *
-                    ((player_creatures or 0) * (player_reap_rate or 0) + (player_delta or 0))
-                    ))
-        for opponent_amber, player_defense, opponent_creatures, opponent_reap_rate, opponent_delta,
-            player_amber, opponent_defense, player_creatures, player_reap_rate, player_delta
-        in zip(opponent_tav, p_amber_defense, opponent_data['creatures'], opponent_reap_rate, opponent_delta,
-               player_tav, op_amber_defense, player_data['creatures'], player_reap_rate, player_delta)
-    ]
-
-    # Precompute Kill Advantage
-    kill_advantage = [
-        min(25, max(1,
-                    (18 - (opponent_amber or 0)) /
-                    (1 - (player_defense or 0) / 100) *
-                    (max(0, (opponent_creatures or 0) - 1) * (opponent_reap_rate or 0) + (opponent_delta or 0))
-                    )) -
-        min(25, max(1,
-                    (18 - (player_amber or 0)) /
-                    (1 - (opponent_defense or 0) / 100) *
-                    (player_creatures or 0 * (player_reap_rate or 0) + (player_delta or 0))
-                    ))
-        for opponent_amber, player_defense, opponent_creatures, opponent_reap_rate, opponent_delta,
-            player_amber, opponent_defense, player_creatures, player_reap_rate, player_delta
-        in zip(opponent_tav, p_amber_defense, opponent_data['creatures'], opponent_reap_rate, opponent_delta,
-               player_tav, op_amber_defense, player_data['creatures'], player_reap_rate, player_delta)
-    ]
-
-    # Precompute Trade Advantage
-    trade_advantage = [
-        min(25, max(1,
-                    (18 - (opponent_amber or 0)) /
-                    (1 - (player_defense or 0) / 100) *
-                    (max(0, (opponent_creatures or 0) - 1) * (opponent_reap_rate or 0) + (opponent_delta or 0))
-                    )) -
-        min(25, max(1,
-                    (18 - (player_amber or 0)) /
-                    (1 - (opponent_defense or 0) / 100) *
-                    (max(0, (player_creatures or 0) - 1) * (player_reap_rate or 0) + (player_delta or 0))
-                    ))
-        for opponent_amber, player_defense, opponent_creatures, opponent_reap_rate, opponent_delta,
-            player_amber, opponent_defense, player_creatures, player_reap_rate, player_delta
-        in zip(opponent_tav, p_amber_defense, opponent_data['creatures'], opponent_reap_rate, opponent_delta,
-               player_tav, op_amber_defense, player_data['creatures'], player_reap_rate, player_delta)
-    ]
-
-    # Precompute Reap/Kill Advantage and Reap/Trade Advantage
-    reap_kill_advantage = [reap - kill for reap, kill in zip(reap_advantage, kill_advantage)]
-    reap_trade_advantage = [reap - trade for reap, trade in zip(reap_advantage, trade_advantage)]
+    # reap_advantage = [
+    #     min(25, max(1,
+    #                 (18 - (opponent_amber or 0)) /
+    #                 (1 - (player_defense or 0) / 100) *
+    #                 ((opponent_creatures or 0) * (opponent_reap_rate or 0) + (opponent_delta or 0))
+    #                 )) -
+    #     min(25, max(1,
+    #                 (18 - ((player_amber or 0) + 1)) /
+    #                 (1 - (opponent_defense or 0) / 100) *
+    #                 ((player_creatures or 0) * (player_reap_rate or 0) + (player_delta or 0))
+    #                 ))
+    #     for opponent_amber, player_defense, opponent_creatures, opponent_reap_rate, opponent_delta,
+    #         player_amber, opponent_defense, player_creatures, player_reap_rate, player_delta
+    #     in zip(opponent_tav, p_amber_defense, opponent_data['creatures'], opponent_reap_rate, opponent_delta,
+    #            player_tav, op_amber_defense, player_data['creatures'], player_reap_rate, player_delta)
+    # ]
+    #
+    # # Precompute Kill Advantage
+    # kill_advantage = [
+    #     min(25, max(1,
+    #                 (18 - (opponent_amber or 0)) /
+    #                 (1 - (player_defense or 0) / 100) *
+    #                 (max(0, (opponent_creatures or 0) - 1) * (opponent_reap_rate or 0) + (opponent_delta or 0))
+    #                 )) -
+    #     min(25, max(1,
+    #                 (18 - (player_amber or 0)) /
+    #                 (1 - (opponent_defense or 0) / 100) *
+    #                 (player_creatures or 0 * (player_reap_rate or 0) + (player_delta or 0))
+    #                 ))
+    #     for opponent_amber, player_defense, opponent_creatures, opponent_reap_rate, opponent_delta,
+    #         player_amber, opponent_defense, player_creatures, player_reap_rate, player_delta
+    #     in zip(opponent_tav, p_amber_defense, opponent_data['creatures'], opponent_reap_rate, opponent_delta,
+    #            player_tav, op_amber_defense, player_data['creatures'], player_reap_rate, player_delta)
+    # ]
+    #
+    # # Precompute Trade Advantage
+    # trade_advantage = [
+    #     min(25, max(1,
+    #                 (18 - (opponent_amber or 0)) /
+    #                 (1 - (player_defense or 0) / 100) *
+    #                 (max(0, (opponent_creatures or 0) - 1) * (opponent_reap_rate or 0) + (opponent_delta or 0))
+    #                 )) -
+    #     min(25, max(1,
+    #                 (18 - (player_amber or 0)) /
+    #                 (1 - (opponent_defense or 0) / 100) *
+    #                 (max(0, (player_creatures or 0) - 1) * (player_reap_rate or 0) + (player_delta or 0))
+    #                 ))
+    #     for opponent_amber, player_defense, opponent_creatures, opponent_reap_rate, opponent_delta,
+    #         player_amber, opponent_defense, player_creatures, player_reap_rate, player_delta
+    #     in zip(opponent_tav, p_amber_defense, opponent_data['creatures'], opponent_reap_rate, opponent_delta,
+    #            player_tav, op_amber_defense, player_data['creatures'], player_reap_rate, player_delta)
+    # ]
+    #
+    # # Precompute Reap/Kill Advantage and Reap/Trade Advantage
+    # reap_kill_advantage = [reap - kill for reap, kill in zip(reap_advantage, kill_advantage)]
+    # reap_trade_advantage = [reap - trade for reap, trade in zip(reap_advantage, trade_advantage)]
 
     # Create the DataFrame
     game_dataframe = pd.DataFrame({
@@ -361,6 +361,8 @@ def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_n
         'Opponent Amber': opponent_tav,
         'Player Amber Defense': p_amber_defense,
         'Opponent Amber Defense': op_amber_defense,
+        'Player Forge Rate': p_forge_rate,
+        'Opponent Forge Rate': op_forge_rate,
         'Player Cards': player_data['cards_played'],
         'Opponent Cards': opponent_data['cards_played'],
         'Player Creatures': player_data['creatures'],
@@ -373,11 +375,11 @@ def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_n
         'Opponent Delta': opponent_delta,
         'Player Reap Rate': player_reap_rate,
         'Opponent Reap Rate': opponent_reap_rate,
-        'Reap Advantage': reap_advantage,
-        'Kill Advantage': kill_advantage,
-        'Trade Advantage': trade_advantage,
-        'Reap/Kill Advantage': reap_kill_advantage,
-        'Reap/Trade Advantage': reap_trade_advantage
+        # 'Reap Advantage': reap_advantage,
+        # 'Kill Advantage': kill_advantage,
+        # 'Trade Advantage': trade_advantage,
+        # 'Reap/Kill Advantage': reap_kill_advantage,
+        # 'Reap/Trade Advantage': reap_trade_advantage
     })
     # game_dataframe = pd.DataFrame({'Player Amber': player_tav, 'Opponent Amber': opponent_tav, 'Player Amber Defense': p_amber_defense, 'Opponent Amber Defense': op_amber_defense, 'Player Cards': player_data['cards_played'], 'Opponent Cards': opponent_data['cards_played'], 'Player Creatures': player_data['creatures'], 'Opponent Creatures': opponent_data['creatures'], 'Player Survival Rate': player_survival_rate, 'Opponent Survival Rate': opponent_survival_rate, 'Player Prediction': player_ttw, 'Opponent Prediction': opponent_ttw, 'Player Delta': player_delta, 'Opponent Delta': opponent_delta, 'Player Reap Rate': player_reap_rate, 'Opponent Reap Rate': opponent_reap_rate})
     # game_dataframe['Reap Advantage'] = min(25, max(1, (18 - game_dataframe['Opponent Amber']) / (1-game_dataframe['Player Amber Defense']/100)*(game_dataframe['Opponent Creatures'] * game_dataframe['Opponent Reap Rate'] + game_dataframe['Opponent Delta']))) - min(25, max(1, (18 - (game_dataframe['Player Amber'] + 1)) / (1-game_dataframe['Opponent Amber Defense']/100)*(game_dataframe['Player Creatures'] * game_dataframe['Player Reap Rate'] + game_dataframe['Player Delta'])))
@@ -561,7 +563,7 @@ def analyze_game(username, game_data, high_contrast=False):
 
 
 def create_game_analysis_graphs(player_data, username, opponent_data, opponent_name, first_player, high_contrast=False):
-    player_tav, opponent_tav, p_amber_gained, op_amber_gained, p_amber_defense, op_amber_defense = calculate_tav(player_data, opponent_data)
+    player_tav, opponent_tav, p_amber_gained, op_amber_gained, p_amber_defense, op_amber_defense, p_forge_rate, op_forge_rate = calculate_tav(player_data, opponent_data)
     player_ttw, player_delta, player_reap_rate = calculate_ttw(player_tav, player_data, op_amber_defense[-1])
     opponent_ttw, opponent_delta, opponent_reap_rate = calculate_ttw(opponent_tav, opponent_data, p_amber_defense[-1])
     p_values = [player_data['amber_effect'][-1], player_data['steal'][-1], player_data['amber_reaped'][-1], player_data['amber_icons'][-1]]
@@ -582,7 +584,7 @@ def create_game_analysis_graphs(player_data, username, opponent_data, opponent_n
     player_card_data = get_card_information(player_data, player_individual_survival_rates)
     opponent_card_data = get_card_information(opponent_data, opponent_individual_survival_rates)
     tide = calculate_tide(player_data)
-    game_dataframe = pd.DataFrame({'Player Amber': player_tav, 'Opponent Amber': opponent_tav, 'Player Amber Gained': p_amber_gained, 'Opponent Amber Gained': op_amber_gained, 'Player Amber Defense': p_amber_defense, 'Opponent Amber Defense': op_amber_defense, 'Player Cards': player_data['cards_played'], 'Opponent Cards': opponent_data['cards_played'], 'Player Creatures': player_data['creatures'], 'Opponent Creatures': opponent_data['creatures'], 'Player Survival Rate': player_survival_rate, 'Opponent Survival Rate': opponent_survival_rate, 'Player Prediction': player_ttw, 'Opponent Prediction': opponent_ttw, 'Player Delta': player_delta, 'Opponent Delta': opponent_delta, 'Player Reap Rate': player_reap_rate, 'Opponent Reap Rate': opponent_reap_rate})
+    game_dataframe = pd.DataFrame({'Player Amber': player_tav, 'Opponent Amber': opponent_tav, 'Player Amber Gained': p_amber_gained, 'Opponent Amber Gained': op_amber_gained, 'Player Amber Defense': p_amber_defense, 'Opponent Amber Defense': op_amber_defense, 'Player Forge Rate': p_forge_rate, 'Opponent Forge Rate': op_forge_rate, 'Player Cards': player_data['cards_played'], 'Opponent Cards': opponent_data['cards_played'], 'Player Creatures': player_data['creatures'], 'Opponent Creatures': opponent_data['creatures'], 'Player Survival Rate': player_survival_rate, 'Opponent Survival Rate': opponent_survival_rate, 'Player Prediction': player_ttw, 'Opponent Prediction': opponent_ttw, 'Player Delta': player_delta, 'Opponent Delta': opponent_delta, 'Player Reap Rate': player_reap_rate, 'Opponent Reap Rate': opponent_reap_rate})
     if tide:
         game_dataframe['Tide'] = tide
     if 'tokens_created' in player_data:
@@ -615,7 +617,26 @@ def calculate_tav(player_data, opponent_data):
     op_amber_gained = [opponent_data['amber_icons'][i] + opponent_data['amber_reaped'][i] + opponent_data['amber_effect'][i] + opponent_data['steal'][i] for i in range(len(opponent_data['amber_icons']))]
     p_amber_defense = [round(100*(1 - opponent_tav[i] / op_amber_gained[i])) if op_amber_gained[i] > 0 else 0 for i in range(len(opponent_tav))]
     op_amber_defense = [round(100*(1 - player_tav[i] / p_amber_gained[i])) if p_amber_gained[i] > 0 else 0 for i in range(len(player_tav))]
-    return player_tav, opponent_tav, p_amber_gained, op_amber_gained, p_amber_defense, op_amber_defense
+    if 'checks' in player_data:
+        if 'checked_keys' in player_data:
+            # player_data['checked_keys'].pop(0)
+            # opponent_data['checked_keys'].pop(0)
+            print(len(player_data['checked_keys']), len(player_data['checks']))
+            print(player_data['checks'])
+            print(player_data['checked_keys'])
+            p_forge_rate = [round(100 * k / c) if c != 0 and k != 0 else None for k, c in zip(player_data['checked_keys'], player_data['checks'])]
+            op_forge_rate = [round(100 * k / c) if c != 0 and k != 0 else None for k, c in zip(opponent_data['checked_keys'], opponent_data['checks'])]
+        else:
+            p_forge_rate = [round(100 * k / c) if c != 0 and k != 0 else None for k, c in zip(player_data['keys'], player_data['checks'])]
+            op_forge_rate = [round(100 * k / c) if c != 0 and k != 0 else None for k, c in zip(opponent_data['keys'], opponent_data['checks'])]
+    else:
+        p_forge_rate = [0 for _ in range(len(player_data['keys']))]
+        op_forge_rate = [0 for _ in range(len(opponent_data['keys']))]
+
+    p_forge_rate += [None for _ in range(len(player_tav) - len(p_forge_rate))]
+    op_forge_rate += [None for _ in range(len(opponent_tav) - len(op_forge_rate))]
+
+    return player_tav, opponent_tav, p_amber_gained, op_amber_gained, p_amber_defense, op_amber_defense, p_forge_rate, op_forge_rate
 
 
 def total_amber_value(player_tav, opponent_tav, player_data, opponent_data, opponent_name, first_player, save, games=1):
@@ -981,7 +1002,6 @@ def make_house_image(calls, player_graph=True):
 
 def make_house_image_deck(calls, min_threshold=0, player_graph=True):
     house_order = [h.lower() for h in house_dict.keys()]
-    print(calls)
     houses = list({key for call in calls for key in call.keys()})
 
     sorted_strings = sorted(houses, key=lambda z: house_order.index(z))
@@ -1058,7 +1078,6 @@ def make_house_image_deck(calls, min_threshold=0, player_graph=True):
         for j, house in enumerate(top_houses):
             img = f'./house_images/105px-{house.title()}.png'
             if player_graph:
-                print(resulting_dict)
                 y = y_values[resulting_dict[house]]
             else:
                 y = y_values[j]
