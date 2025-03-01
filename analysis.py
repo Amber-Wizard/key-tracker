@@ -22,6 +22,7 @@ def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
                               'individual_cards_played': [],
                               'individual_cards_played_total': [{}],
                               'individual_cards_played_turn': {'first': [], 'second': []},
+                              'individual_cards_drawn': {},
                               'individual_cards_discarded': [{}],
                               'individual_amber_icons': [{}],
                               'individual_amber_effect': [{}],
@@ -35,6 +36,8 @@ def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
                               'card_losses': {},
                               'amber': [],
                               'keys': [],
+                              'checks': [],
+                              'checked_keys': [],
                               'creatures': [],
                               'house_calls': [],
                               'amber_icons': [],
@@ -62,6 +65,8 @@ def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
                                    'card_losses': {},
                                    'amber': [],
                                    'keys': [],
+                                   'checks': [],
+                                   'checked_keys': [],
                                    'creatures': [],
                                    'house_calls': [],
                                    'amber_icons': [],
@@ -72,6 +77,10 @@ def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
                                    'deaths': [],
                                    'survival_rate': []}}
 
+    basic_stat_list = ['cards_played', 'amber', 'keys', 'checks', 'creatures', 'amber_icons', 'amber_effect', 'amber_reaped', 'steal']
+    basic_stat_dict = {k: 0 for k in basic_stat_list}
+    stat_turn_vals = []
+
     for idx, row in deck_games.iterrows():
         game_data = row['Game Log'][0]
         names = list(game_data.keys())
@@ -79,6 +88,10 @@ def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
         player_name = row['Player'][0]
         opponent_name = row['Opponent'][0]
         winner = row['Winner'][0]
+        if winner == player_name:
+            won = 1
+        else:
+            won = 0
         first_player = row['Starting Player'][0]
 
         if first_player == player_name:
@@ -90,6 +103,17 @@ def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
 
         player_data = game_data[player_name]
         opponent_data = game_data[opponent_name]
+        player_hand = game_data['player_hand']
+
+        unique_cards = list(set(value for sublist in player_hand for value in sublist))
+        for item in unique_cards:
+            if item in aggregate_data[pilot]['individual_cards_drawn']:
+                # Increment values if key exists
+                aggregate_data[pilot]['individual_cards_drawn'][item]['drawn'] += 1
+                aggregate_data[pilot]['individual_cards_drawn'][item]['wins'] += won
+            else:
+                # Add new key-value pair if key does not exist
+                aggregate_data[pilot]['individual_cards_drawn'][item] = {'drawn': 1, 'wins': won}
 
         for turn_idx, cards_played in enumerate(player_data['individual_cards_played']):
             if turn_idx != 0:
@@ -122,13 +146,27 @@ def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
                 if j >= len(aggregate_data[player]['turns']):
                     aggregate_data[player]['turns'].append(1)
                     aggregate_data[player]['individual_cards_played'].append({})
+                    stat_turn_vals.append(dict(basic_stat_dict))
 
-                    for val in ['cards_played', 'amber', 'keys', 'creatures', 'amber_icons', 'amber_effect', 'amber_reaped', 'steal']:
-                        aggregate_data[player][val].append(p_data[val][j])
+                    for val in basic_stat_list:
+                        if val in p_data:
+                            aggregate_data[player][val].append(p_data[val][j])
+                            stat_turn_vals[j][val] += 1
+
+                            if val == 'checks':
+                                aggregate_data[player]['checked_keys'].append(p_data['keys'][j])
+                        else:
+                            aggregate_data[player][val].append(0)
+
                 else:
                     aggregate_data[player]['turns'][j] += 1
-                    for val in ['cards_played', 'amber', 'keys', 'creatures', 'amber_icons', 'amber_effect', 'amber_reaped', 'steal']:
-                        aggregate_data[player][val][j] += p_data[val][j]
+                    for val in basic_stat_list:
+                        if val in p_data:
+                            aggregate_data[player][val][j] += p_data[val][j]
+                            stat_turn_vals[j][val] += 1
+
+                            if val == 'checks':
+                                aggregate_data[player]['checked_keys'][j] += p_data['keys'][j]
 
                 for card, played in p_data['individual_cards_played'][j].items():
                     if j != 0:
@@ -240,10 +278,15 @@ def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
         p_agg['turns'].append(1)  # add 1 in case no 1's appear
         first_one_index = p_agg['turns'].index(1)  # find first 1
         p_agg['turns'] = p_agg['turns'][:first_one_index]  # remove up to first 1
-        for stat in ['cards_played', 'amber', 'keys', 'creatures', 'amber_icons', 'amber_effect', 'amber_reaped', 'steal']:
+        for stat in ['cards_played', 'amber', 'keys', 'checks', 'creatures', 'amber_icons', 'amber_effect', 'amber_reaped', 'steal']:
             p_agg[stat] = p_agg[stat][:first_one_index]  # trim stat to first 1
-            for i, t in enumerate(p_agg['turns']):
-                p_agg[stat][i] = round(p_agg[stat][i] / t, 2)  # divide stat by turns
+            for i, turn_stats in enumerate(stat_turn_vals):
+                if i < len(p_agg[stat]):
+                    p_agg[stat][i] = round(p_agg[stat][i] / turn_stats[stat], 2) if turn_stats[stat] != 0 else 0  # divide stat by turns
+
+        for i, turn_stats in enumerate(stat_turn_vals):
+            if i < len(p_agg['checked_keys']):
+                p_agg['checked_keys'][i] = round(p_agg['checked_keys'][i] / turn_stats['checks'], 2) if turn_stats['checks'] > 0 else 0  # divide stat by turns
         for stat in ['turn_played', 'individual_cards_played_total', 'individual_cards_discarded', 'individual_amber_icons', 'individual_amber_effect', 'individual_amber_reaped', 'individual_steal']:
             for card in p_agg[stat][-1]:
                 p_agg[stat][-1][card] = round(p_agg[stat][-1][card]/len(deck_games), 1)  # divide stat by games

@@ -3,10 +3,23 @@ import requests
 import time
 import pandas as pd
 import streamlit as st
+import ast
 
 headers = {
     "Api-Key": st.secrets['dok']['api_key']
 }
+
+
+def pull_alliance_data(deck_id):
+    time.sleep(2.5)
+    response = requests.get("https://decksofkeyforge.com/public-api/v1/alliance-decks/" + deck_id, headers=headers)
+
+    try:
+        data = response.json()
+        return data
+    except:
+        print(response)
+        return None
 
 
 def pull_deck_data(deck_id):
@@ -18,6 +31,7 @@ def pull_deck_data(deck_id):
         return data
     except:
         print(response)
+        return None
 
 
 def pull_card_data():
@@ -37,10 +51,51 @@ def pull_card_data():
 @st.cache_resource
 def load_card_data():
     card_data = pd.read_csv("card_log.csv")
-    cid = card_data.set_index('cardTitle')['cardTitleUrl'].to_dict()
-    return card_data, cid
+    crd = {}
+    for idx, row in card_data.iterrows():
+        card_rarities = []
+        card_sets = []
+        for exp in ast.literal_eval(row['expansions']):
+            if exp['rarity'] not in card_rarities and exp['rarity'] not in ['Special', 'Variant', 'FIXED']:
+                card_rarities.append(exp['rarity'])
+                card_sets.append(exp['expansion'])
+                if len(card_rarities) > 1:
+                    print(row['cardTitle'], card_rarities, card_sets)
+                    break
+        if len(card_rarities) == 1:
+            crd[row['cardTitle']] = card_rarities[0]
+        else:
+            crd[row['cardTitle']] = "Special"
 
-card_df, card_image_dict = load_card_data()
+    cid = card_data.set_index('cardTitle')['cardTitleUrl'].to_dict()
+    return card_data, cid, crd
+
+card_df, card_image_dict, card_rarity_dict = load_card_data()
+
+
+def fix_card_string(card_name):
+    fixed_string = card_name.replace('”', '"').replace('“', '"').replace("’", "'")
+    return fixed_string
+
+
+def get_card_image(card_name):
+    fixed_string = fix_card_string(card_name)
+    if card_name in card_image_dict:
+        return card_image_dict[card_name]
+    elif fixed_string in card_image_dict:
+        return card_image_dict[fixed_string]
+    else:
+        return None
+
+
+def get_card_rarity(card_name):
+    fixed_string = fix_card_string(card_name)
+    if card_name in card_rarity_dict:
+        return card_rarity_dict[card_name]
+    elif fixed_string in card_rarity_dict:
+        return card_rarity_dict[fixed_string]
+    else:
+        return None
 
 
 def check_card_type(card_name):
