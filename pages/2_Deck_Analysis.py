@@ -584,10 +584,16 @@ else:
                 if card not in cards_checked:
                     cards_checked.append(card)
 
-                    card_played = c_data['Played'].iloc[0]
+                    try:
+                        card_played = c_data['Played'].iloc[0]
+                    except:
+                        card_played = 0
                     house_scores[house]['Cards Played'] += card_played
 
-                    amber_gained = c_data['Amber'].iloc[0]
+                    try:
+                        amber_gained = c_data['Amber'].iloc[0]
+                    except:
+                        amber_gained = 0
                     house_scores[house]['Amber Gained'] += amber_gained
 
             h_wr = round(100 * house_scores[house]['Rating']['Wins'] / house_scores[house]['Rating']['Games'])
