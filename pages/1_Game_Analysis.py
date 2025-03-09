@@ -75,6 +75,9 @@ hide_streamlit_style = """
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
+if 'user_info' not in st.session_state:
+    st.session_state.user_info = {'aliases': []}
+
 game_id = None
 if 'game' in st.query_params:
     game_id = st.query_params.get_all(key='game')[0]
@@ -101,7 +104,7 @@ else:
     player = st.session_state.game_data['Player'][0].strip()
     if 'player_info' not in st.session_state:
         st.session_state.player_info = database.get_user(player)
-        if 'icon_link' in st.session_state.player_info:
+        if st.session_state.player_info and 'icon_link' in st.session_state.player_info:
             st.session_state.player_icon = st.session_state.player_info['icon_link']
         else:
             st.session_state.player_icon = 'https://i.imgur.com/ib66iB9.png'
@@ -134,20 +137,51 @@ else:
     if home:
         st.switch_page("Home.py")
     st.write('')
-
     tab_1, tab_2, tab_3, tab_4 = st.tabs(['Info', 'Summary', 'Advantage', 'Replay'])
 
     with tab_1:
-        c1, c2 = st.columns([1, 13], vertical_alignment='center')
+        c1, c2, c3 = st.columns([1, 11.25, 1.75], vertical_alignment='center')
         c1.image(st.session_state.player_icon)
         c2.markdown(f'<b class="hero-title-font">{player}</b>', unsafe_allow_html=True)
         st.write('')
+
         c1, c2 = st.columns([7, 1])
         c1.markdown(f'<b class="deck-font">{deck}</b>', unsafe_allow_html=True)
-        if st.session_state.game_data["Deck Link"][0]:
+        if st.session_state.game_data['Format'][0] != 'Archon':
+            if st.session_state.game_data["Deck Link"][0] and st.session_state.game_data["Deck Link"][0] != "https://decksofkeyforge.com/":
+                c2.link_button("Deck Info", st.session_state.game_data["Deck Link"][0])
+            # elif 'name' in st.session_state and (st.session_state.name == st.session_state.game_data['Player'][0]) or ('aliases' in st.session_state['user_info'] and st.session_state.game_data['Player'][0] in st.session_state['user_info']['aliases']):
+            #     alliances = database.get_user_alliances(st.session_state.name)
+            #     with c2.popover('Add Alliance'):
+            #         st.markdown(f'<p class="deck-font">New</p>', unsafe_allow_html=True)
+            #         p_cols = st.columns([4, 3, 1], vertical_alignment='bottom')
+            #         alliance_name = p_cols[0].text_input('Name')
+            #         alliance_deck_link = p_cols[1].text_input('DoK Link')
+            #         if p_cols[2].button("➤", key='submit_new_alliance_player'):
+            #             success, message = database.add_alliance_deck(st.session_state.game_id, alliance={'name': alliance_name, 'link': alliance_deck_link}, player=st.session_state.name)
+            #             icon = ':material/check:' if success else '❌'
+            #             st.toast(message, icon=icon)
+            #             st.rerun()
+            #
+            #         st.divider()
+            #         st.markdown(f'<p class="deck-font">Existing</p>', unsafe_allow_html=True)
+            #         p_cols = st.columns([7, 1], vertical_alignment='bottom')
+            #         alliance_name = p_cols[0].selectbox('Alliance', options=alliances['alliance'], index=None, placeholder='Select Alliance')
+            #         if p_cols[1].button("➤", key='submit_old_alliance_player'):
+            #             alliance_deck_link = alliances.loc[alliances['alliance'] == alliance_name, 'link'].iat[0]
+            #             success, message = database.update_alliance_deck(st.session_state.game_id, alliance=alliance_name, alliance_link=alliance_deck_link)
+            #             if success:
+            #                 st.toast(message, icon='✔')
+            #                 st.rerun()
+            #             else:
+            #                 st.toast(message, icon='❌')
+            #
+            #         st.write('')
+
+        elif st.session_state.game_data["Deck Link"][0] and st.session_state.game_data["Deck Link"][0] != "https://decksofkeyforge.com/":
             c2.link_button("Deck Info", st.session_state.game_data["Deck Link"][0])
-        else:
-            if 'name' in st.session_state and st.session_state.name == st.session_state.game_data['Player'][0]:
+        elif st.session_state.game_data['Format'][0] != 'Sealed' and st.session_state.game_data['Format'][0] != 'Alliance':
+            if 'name' in st.session_state and (st.session_state.name == st.session_state.game_data['Player'][0]) or ('aliases' in st.session_state['user_info'] and st.session_state.game_data['Player'][0] in st.session_state['user_info']['aliases']):
                 with c2.popover("Add Deck"):
                     st.write("Paste Deck Link")
                     p_cols = st.columns([3, 1])
@@ -158,6 +192,7 @@ else:
                             dok_data = database.get_dok_cache_deck_id(deck_code)
                             if database.update_game_decks(st.session_state.game_id, dok_data['Deck'], "https://decksofkeyforge.com/decks/"+dok_data['ID']):
                                 st.success(f"Deck Updated: {dok_data['Deck']}")
+                                st.rerun()
                             else:
                                 st.error(f"Error Updating Deck Info")
                         else:
@@ -165,10 +200,10 @@ else:
         st.write('vs')
         c1, c2 = st.columns([7, 1])
         c1.markdown(f'<b class="deck-font">{st.session_state.game_data["Opponent Deck"][0]}</b>', unsafe_allow_html=True)
-        if st.session_state.game_data["Opponent Deck Link"][0]:
+        if st.session_state.game_data["Opponent Deck Link"][0] and st.session_state.game_data["Opponent Deck Link"][0] != "https://decksofkeyforge.com/":
             c2.link_button("Deck Info", st.session_state.game_data["Opponent Deck Link"][0])
-        else:
-            if 'name' in st.session_state and st.session_state.name == st.session_state.game_data['Player'][0]:
+        elif st.session_state.game_data['Format'][0] == 'Archon':
+            if 'name' in st.session_state and (st.session_state.name == st.session_state.game_data['Player'][0]) or ('aliases' in st.session_state['user_info'] and st.session_state.game_data['Player'][0] in st.session_state['user_info']['aliases']):
                 with c2.popover("Add Deck"):
                     st.write("Paste Deck Link")
                     p_cols = st.columns([3, 1])
@@ -179,6 +214,7 @@ else:
                             dok_data = database.get_dok_cache_deck_id(deck_code)
                             if database.update_game_decks(st.session_state.game_id, dok_data['Deck'], "https://decksofkeyforge.com/decks/"+dok_data['ID'], player=False):
                                 st.success(f"Deck Updated: {dok_data['Deck']}")
+                                st.rerun()
                             else:
                                 st.error(f"Error Updating Deck Info")
                         else:
@@ -211,20 +247,25 @@ else:
 
         c2.markdown(f'<b class="hero-font">{game_log[player]["keys"][-1]}</b><b class="plain-font">-</b><b class="villain-font">{game_log[opponent]["keys"][-1]}</b>', unsafe_allow_html=True)
 
-        if winner == player:
+        if winner != player and winner != opponent:
+            if 'name' in st.session_state and (st.session_state.name == st.session_state.game_data['Player'][0]) or ('aliases' in st.session_state['user_info'] and st.session_state.game_data['Player'][0] in st.session_state['user_info']['aliases']):
+                with c3.popover('Add Winner'):
+                    st.write("Select Winner")
+                    p_cols = st.columns([3, 1])
+                    new_winner = p_cols[0].selectbox("", [player, opponent], label_visibility='collapsed')
+                    if p_cols[1].button("➤", key='submit_winner'):
+                        if database.update_game_winner(st.session_state.game_id, new_winner):
+                            st.success(f"Winner Updated: {new_winner}")
+                            st.session_state.game_data['Winner'][0] = new_winner
+                            winner = new_winner
+                            st.rerun()
+                        else:
+                            st.error(f"Error Updating Winner Info")
+
+        elif winner == player:
             c3.markdown(f'<b class="hero-font">{winner}</b>', unsafe_allow_html=True)
         elif winner == opponent:
             c3.markdown(f'<b class="villain-font">{winner}</b>', unsafe_allow_html=True)
-        else:
-            with c3.popover('Add Winner'):
-                st.write("Select Winner")
-                p_cols = st.columns([3, 1])
-                new_winner = p_cols[0].selectbox("", [player, opponent], label_visibility='collapsed')
-                if p_cols[1].button("➤", key='submit_winner'):
-                    if database.update_game_winner(st.session_state.game_id, new_winner):
-                        st.success(f"Winner Updated: {new_winner}")
-                    else:
-                        st.error(f"Error Updating Winner Info")
 
     st.write(' ')
     st.write(' ')
@@ -295,6 +336,11 @@ else:
                 'y_label': 'Survival Rate (%)',
                 'color': base_colors,
             },
+            # "Forge Through Rate": {
+            #     'y_values': ['Player Forge Rate', 'Opponent Forge Rate'],
+            #     'y_label': 'Forge Through Rate %',
+            #     'color': base_colors,
+            # }
         }
 
         for i, chart in enumerate(chart_dict.keys()):
@@ -494,7 +540,10 @@ else:
                 if 'purged_count' in game_log[p] and game_log[p]['purged_count'][t] != 0:
                     cols[next_col].markdown(f'<b class="plain-font">Purge: {game_log[p]["purged_count"][t]}</b>', unsafe_allow_html=True)
 
-                hands = [[x for x in ls if len(x) != 0] for ls in st.session_state.game_data['Game Log'][0]['player_hand']]
+                if 'player_hand' in st.session_state.game_data['Game Log'][0]:
+                    hands = [[x for x in ls if len(x) != 0] for ls in st.session_state.game_data['Game Log'][0]['player_hand']]
+                else:
+                    hands = None
                 player_boards = [[x for x in ls if len(x) != 0] for ls in st.session_state.game_data['Game Log'][0][player]['board']]
                 opponent_boards = [[x for x in ls if len(x) != 0] for ls in st.session_state.game_data['Game Log'][0][opponent]['board']]
                 if 'artifacts' in st.session_state.game_data['Game Log'][0][player]:
@@ -520,7 +569,7 @@ else:
 
                 remove_chars = "[]æ””“*!,.-…’'éĕŏăŭĭ\""
 
-                if p == player:
+                if p == player and hands:
                     st.markdown(f'<b class="plain-font">Player Hand</b>', unsafe_allow_html=True)
                     cols = st.columns(max(11, len(hands[max(t-1, 0)])))
 
