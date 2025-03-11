@@ -103,9 +103,12 @@ def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
 
         player_data = game_data[player_name]
         opponent_data = game_data[opponent_name]
-        player_hand = game_data['player_hand']
+        if 'player_hand' in game_data:
+            player_hand = game_data['player_hand']
+            unique_cards = list(set(value for sublist in player_hand for value in sublist))
+        else:
+            player_hand, unique_cards = None, []
 
-        unique_cards = list(set(value for sublist in player_hand for value in sublist))
         for item in unique_cards:
             if item in aggregate_data[pilot]['individual_cards_drawn']:
                 # Increment values if key exists
@@ -157,6 +160,8 @@ def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
                                 aggregate_data[player]['checked_keys'].append(p_data['keys'][j])
                         else:
                             aggregate_data[player][val].append(0)
+                            if val == 'checks':
+                                aggregate_data[player]['checked_keys'].append(0)
 
                 else:
                     aggregate_data[player]['turns'][j] += 1
@@ -166,7 +171,10 @@ def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
                             stat_turn_vals[j][val] += 1
 
                             if val == 'checks':
-                                aggregate_data[player]['checked_keys'][j] += p_data['keys'][j]
+                                try:
+                                    aggregate_data[player]['checked_keys'][j] += p_data['keys'][j]
+                                except:
+                                    print(j, len(aggregate_data[player]['checked_keys']), len(p_data['keys']))
 
                 for card, played in p_data['individual_cards_played'][j].items():
                     if j != 0:
