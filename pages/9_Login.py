@@ -28,7 +28,9 @@ authenticator, name_conversion_dict = users.get_authenticator()
 if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
     if 'login_type' not in st.session_state:
         st.session_state.login_type = 'normal'
-    name, auth_status, username = authenticator.login(location="main")
+    login_results = authenticator.login(location="main")
+    if login_results:
+        name, auth_status, username = login_results
     if st.session_state.authentication_status is False:
         st.error("Incorrect username/password")
     if st.session_state.login_type == 'special' or st.session_state.authentication_status:
