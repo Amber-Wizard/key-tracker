@@ -102,7 +102,7 @@ def get_all_elo_scores():
         user_scores = database.get_all_users()
         user_dict = {d['tco_name']: d for d in user_scores}
         st.session_state.user_dict = user_dict
-        st.session_state.user_scores = [i for i in user_dict.values() if 'games' in i and 'wins' in i and i['games'] > 0]
+        st.session_state.user_scores = [i for i in user_dict.values() if 'games_played' in i]
         deck_scores = database.get_all_elo()
         st.session_state.deck_scores = [i for i in deck_scores if 'games' in i and 'wins' in i and i['games'] > 0]
 
@@ -114,20 +114,31 @@ home = c3.button("🏠")
 if home:
     st.switch_page("Home.py")
 
-c1, c2, c3, c4 = st.columns([4, 1, 1, 1])
-lb_type = c1.selectbox('', options=['Decks', 'Players'])
-sort_by = c2.selectbox('Sort', options=['Score', 'WR%', 'Games'])
-sort_order = c3.selectbox('Order', options=['Desc', 'Asc'])
-min_games = c4.selectbox('Min. Games', options=[5, 10, 25, 50, 100])
+c1, c2, c3, c4, c5 = st.columns([3, 1, 1, 1, 1])
+game_format = c2.selectbox('Format', options=['Archon', 'Alliance', 'Sealed'])
+if game_format == 'Sealed':
+    lb_type_options = ['Players']
+else:
+    lb_type_options = ['Decks', 'Players']
+lb_type = c1.selectbox('', options=lb_type_options)
+sort_by = c3.selectbox('Sort', options=['Score', 'WR%', 'Games'])
+sort_order = c4.selectbox('Order', options=['Desc', 'Asc'])
+min_games = c5.selectbox('Min. Games', options=[5, 10, 25, 50, 100])
 
 if lb_type == 'Decks':
     if 'deck_scores' not in st.session_state:
         get_all_elo_scores()
     elo_scores = st.session_state.deck_scores
+    elo_scores = [item for item in elo_scores if item['format'] == game_format]
 else:
     if 'user_scores' not in st.session_state:
         get_all_elo_scores()
     elo_scores = st.session_state.user_scores
+    for p in elo_scores:
+        p['games'] = p['games_played'][game_format]['games']
+        p['wins'] = p['games_played'][game_format]['wins']
+        p['score'] = p['games_played'][game_format]['score']
+
 
 elo_scores = [item for item in elo_scores if int(item['games']) >= min_games]
 

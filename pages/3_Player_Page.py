@@ -175,8 +175,10 @@ if 'name' not in st.session_state:
 else:
     with st.spinner('Setting up player page...'):
         if 'player_games' not in st.session_state:
+            st.session_state.player_games = {'archon': None, 'alliance': None, 'sealed': None}
             if 'game_log' in st.session_state:
-                st.session_state.player_games = st.session_state.game_log.applymap(lambda x: x[0] if isinstance(x, list) and len(x) == 1 else x)
+                for k, v in st.session_state.game_log.items():
+                    st.session_state.player_games[k] = v.applymap(lambda x: x[0] if isinstance(x, list) and len(x) == 1 else x)
             else:
                 with st.spinner("Getting player games..."):
                     st.session_state.player_games = database.get_user_games(st.session_state.name, trim_lists=True)
@@ -204,78 +206,90 @@ else:
     page_tabs = st.tabs(['Stats', 'Achievements', 'Settings'])
 
     with page_tabs[0]:
-        c1, c2, c3, c4 = st.columns(4)
-        c1.subheader("Games")
-        c2.subheader("Win-Loss")
-        c3.subheader("Winrate")
-        c4.subheader("ELO")
-        games = len(st.session_state.player_games)
-        wins = (st.session_state.player_games['Winner'] == st.session_state.name).sum()
-        losses = games - wins
-        if wins + losses > 0:
-            winrate = round(100*wins / (wins + losses))
-        else:
-            winrate = '--'
-        if 'score' in st.session_state.user_info:
-            score = st.session_state.user_info['score']
-        else:
-            score = 1500
+        for game_format in ['archon', 'alliance', 'sealed']:
+            if game_format in st.session_state.player_games and len(st.session_state.player_games[game_format]) > 0:
+                with st.container(border=True):
+                    st.subheader(game_format.title())
+                    c0, c1, c2, c3, c4 = st.columns([0.5, 1, 1, 1, 1], vertical_alignment='top')
+                    c1.subheader("Games")
+                    c2.subheader("Win-Loss")
+                    c3.subheader("Winrate")
+                    c4.subheader("ELO")
+                    games = len(st.session_state.player_games[game_format])
+                    wins = (st.session_state.player_games[game_format]['Winner'] == st.session_state.name).sum()
+                    losses = games - wins
+                    if wins + losses > 0:
+                        winrate = round(100*wins / (wins + losses))
+                    else:
+                        winrate = '--'
+                    if 'score' in st.session_state.user_info:
+                        score = st.session_state.user_info['games_played'][game_format.title()]['score']
+                    else:
+                        score = 1500
 
-        c1.markdown(f'<b class="plain-font">{games}</b>', unsafe_allow_html=True)
-        c2.markdown(f'<b class="hero-font">{wins}</b><b class="plain-font">-</b><b class="villain-font">{losses}</b>', unsafe_allow_html=True)
-        if winrate >= 50:
-            c3.markdown(f'<b class="hero-font">{winrate}%</b>', unsafe_allow_html=True)
-        elif winrate < 50:
-            c3.markdown(f'<b class="villain-font">{winrate}%</b>', unsafe_allow_html=True)
-        if score:
-            if score >= 1500:
-                c4.markdown(f'<b class="hero-font">{score}</b>', unsafe_allow_html=True)
-            elif score < 1500:
-                c4.markdown(f'<b class="villain-font">{score}</b>', unsafe_allow_html=True)
+                    c1.markdown(f'<b class="plain-font">{games}</b>', unsafe_allow_html=True)
+                    c2.markdown(f'<b class="hero-font">{wins}</b><b class="plain-font">-</b><b class="villain-font">{losses}</b>', unsafe_allow_html=True)
+                    if winrate >= 50:
+                        c3.markdown(f'<b class="hero-font">{winrate}%</b>', unsafe_allow_html=True)
+                    elif winrate < 50:
+                        c3.markdown(f'<b class="villain-font">{winrate}%</b>', unsafe_allow_html=True)
+                    if score:
+                        if score >= 1500:
+                            c4.markdown(f'<b class="hero-font">{score}</b>', unsafe_allow_html=True)
+                        elif score < 1500:
+                            c4.markdown(f'<b class="villain-font">{score}</b>', unsafe_allow_html=True)
 
-        st.divider()
-        st.write('')
-        st.write('')
-        with st.spinner('Getting favorites...'):
-            if 'favorite_deck' not in st.session_state:
-                st.session_state.favorite_deck = st.session_state.player_games['Deck'].mode()[0]
+                    st.divider()
+                    st.write('')
+                    st.write('')
+                    with st.spinner('Getting favorites...'):
+                        if 'favorite_deck' not in st.session_state:
+                            st.session_state.favorite_deck = {}
+                        if game_format not in st.session_state.favorite_deck and game_format != 'sealed':
+                            st.session_state.favorite_deck[game_format] = st.session_state.player_games[game_format]['Deck'].mode()[0]
 
-            if 'favorite_opponent' not in st.session_state:
-                st.session_state.favorite_opponent = st.session_state.player_games['Opponent'].mode()[0]
+                        if 'favorite_opponent' not in st.session_state:
+                            st.session_state.favorite_opponent = {}
+                        if game_format not in st.session_state.favorite_opponent:
+                            st.session_state.favorite_opponent[game_format] = st.session_state.player_games[game_format]['Opponent'].mode()[0]
 
-            if 'favorite_set' not in st.session_state or 'sorted_houses' not in st.session_state:
-                deck_data = st.session_state.player_games.groupby('Deck').size().reset_index(name='Count')
-                deck_data['Dok Data'] = deck_data['Deck'].apply(database.get_dok_cache_deck_name)
-                deck_data = deck_data[deck_data['Dok Data'].notna()]
+                        if 'favorite_set' not in st.session_state or 'sorted_houses' not in st.session_state:
+                            st.session_state.favorite_set = {}
+                            st.session_state.sorted_houses = {}
 
-                deck_data['Set'] = deck_data['Dok Data'].apply(lambda dok_data: database.set_conversion_dict[dok_data['Data']['deck']['expansion']][0])
-                set_count_sum = deck_data.groupby('Set')['Count'].sum().reset_index(name='Count')
-                st.session_state.favorite_set = set_count_sum.loc[set_count_sum['Count'].idxmax(), 'Set']
+                        if (game_format not in st.session_state.favorite_set or game_format not in st.session_state.sorted_houses) and game_format != 'sealed':
+                            deck_data = st.session_state.player_games[game_format].groupby('Deck').size().reset_index(name='Count')
+                            deck_data['Dok Data'] = deck_data['Deck'].apply(database.get_dok_cache_deck_name)
+                            deck_data = deck_data[deck_data['Dok Data'].notna()]
 
-                deck_data['Houses'] = deck_data['Dok Data'].apply(lambda dok_data: [hd['house'] for hd in dok_data['Data']['deck']['housesAndCards']])
-                expanded_deck_games = deck_data.explode('Houses')
-                house_winrate_df = expanded_deck_games.groupby('Houses')['Count'].sum().reset_index(name='Count')
-                st.session_state.sorted_houses = house_winrate_df.sort_values(by='Count', ascending=False)
+                            deck_data['Set'] = deck_data['Dok Data'].apply(lambda dok_data: database.set_conversion_dict[dok_data['Data']['deck']['expansion']][0])
+                            set_count_sum = deck_data.groupby('Set')['Count'].sum().reset_index(name='Count')
+                            st.session_state.favorite_set[game_format] = set_count_sum.loc[set_count_sum['Count'].idxmax(), 'Set']
 
-        top_3_houses = st.session_state.sorted_houses.head(3)
+                            deck_data['Houses'] = deck_data['Dok Data'].apply(lambda dok_data: [hd['house'] for hd in dok_data['Data']['deck']['housesAndCards']])
+                            expanded_deck_games = deck_data.explode('Houses')
+                            house_winrate_df = expanded_deck_games.groupby('Houses')['Count'].sum().reset_index(name='Count')
+                            st.session_state.sorted_houses[game_format] = house_winrate_df.sort_values(by='Count', ascending=False)
 
-        c1, c2, c3 = st.columns([1, 2, 0.5])
+                    if game_format != 'sealed':
+                        top_3_houses = st.session_state.sorted_houses[game_format].head(3)
+                        c1, c2, c3 = st.columns([1, 2, 0.5])
 
-        c1.markdown(f'<p class="plain-font">Favorite Deck:</p>', unsafe_allow_html=True)
-        c2.markdown(f'<b class="plain-font">{st.session_state.favorite_deck}</b>', unsafe_allow_html=True)
-        # c3.button('Deck Info')
+                        c1.markdown(f'<p class="plain-font">Favorite Deck:</p>', unsafe_allow_html=True)
+                        c2.markdown(f'<b class="plain-font">{st.session_state.favorite_deck[game_format]}</b>', unsafe_allow_html=True)
+                    # c3.button('Deck Info')
 
-        c1.markdown(f'<p class="plain-font">Favorite Set:</p>', unsafe_allow_html=True)
-        c2.markdown(f'<b class ="{st.session_state.favorite_set}-font">{st.session_state.favorite_set}</b>', unsafe_allow_html=True)
+                        c1.markdown(f'<p class="plain-font">Favorite Set:</p>', unsafe_allow_html=True)
+                        c2.markdown(f'<b class ="{st.session_state.favorite_set[game_format]}-font">{st.session_state.favorite_set[game_format]}</b>', unsafe_allow_html=True)
 
-        cols = st.columns([1, 0.15, 0.15, 0.15, 2.05])
-        cols[0].markdown(f'<p class="plain-font">Favorite Houses:</p>', unsafe_allow_html=True)
-        for i, h in enumerate(top_3_houses['Houses'].values):
-            cols[i+1].image(house_dict[h]['Image'])
+                        cols = st.columns([1, 0.15, 0.15, 0.15, 2.05])
+                        cols[0].markdown(f'<p class="plain-font">Favorite Houses:</p>', unsafe_allow_html=True)
+                        for i, h in enumerate(top_3_houses['Houses'].values):
+                            cols[i+1].image(house_dict[h]['Image'])
 
-        c1, c2, c3 = st.columns([1, 2, 0.5])
-        c1.markdown(f'<p class="plain-font">Favorite Opponent:</p>', unsafe_allow_html=True)
-        c2.markdown(f'<b class="villain-font">{st.session_state.favorite_opponent}</b>', unsafe_allow_html=True)
+                    c1, c2, c3 = st.columns([1, 2, 0.5])
+                    c1.markdown(f'<p class="plain-font">Favorite Opponent:</p>', unsafe_allow_html=True)
+                    c2.markdown(f'<b class="villain-font">{st.session_state.favorite_opponent[game_format]}</b>', unsafe_allow_html=True)
 
     # Calculate Achievements
     name = st.session_state.name
@@ -368,7 +382,7 @@ else:
         notifs = []
 
         with st.spinner('Calculating temp_achievements...'):
-            for idx, row in st.session_state.player_games.iterrows():
+            for idx, row in st.session_state.player_games['archon'].iterrows():
                 player_log = row['Game Log'][row['Player']]
                 opponent_log = row['Game Log'][row['Opponent']]
                 for a in achievement_func_dict.keys():
@@ -541,7 +555,7 @@ else:
                         c2.markdown(f'<b class="plain-font">{a}</b>', unsafe_allow_html=True)
                         c2.caption(f'**{achievement_master_dict[a]["description"].replace("~", f":orange[{goal_number}]")}**')
                         try:
-                            c2.progress((current_stat - starting_number) / (goal_number - starting_number), '')
+                            c2.progress(current_stat / goal_number, '')
                         except:
                             st.toast(f"Stat Error - C: {current_stat} G: {goal_number} S: {starting_number} ({a})")
                         c3.write(f':orange[{current_stat}/{goal_number}]')

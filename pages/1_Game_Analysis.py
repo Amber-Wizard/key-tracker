@@ -145,80 +145,122 @@ else:
         c2.markdown(f'<b class="hero-title-font">{player}</b>', unsafe_allow_html=True)
         st.write('')
 
+        format_is_archon = st.session_state.game_data['Format'][0] == 'Archon'
+        deck_link = st.session_state.game_data["Deck Link"][0]
+        is_current_user = ('name' in st.session_state and st.session_state.name == player) or ('aliases' in st.session_state.get('user_info', {}) and player in st.session_state['user_info']['aliases'])
+
+
+        @st.dialog("Add Alliance", width='large')
+        def add_alliance_modal(player_deck=True):
+            alliances = database.get_user_alliances(st.session_state.name)
+            st.markdown(f'<p class="deck-font">New</p>', unsafe_allow_html=True)
+            p_cols = st.columns([4, 3, 1], vertical_alignment='bottom')
+            alliance_name = p_cols[0].text_input('Name')
+            alliance_deck_link = p_cols[1].text_input('DoK Link')
+            if p_cols[2].button("➤", key='submit_new_alliance_player'):
+                success, message = database.add_alliance_deck(st.session_state.game_id, alliance={'name': alliance_name, 'link': alliance_deck_link}, player=st.session_state.name, player_deck=player_deck)
+                icon = ':material/check:' if success else '❌'
+                st.toast(message, icon=icon)
+                st.rerun()
+
+            st.divider()
+            st.markdown(f'<p class="deck-font">Existing</p>', unsafe_allow_html=True)
+            p_cols = st.columns([7, 1], vertical_alignment='bottom')
+            alliance_name = p_cols[0].selectbox('Alliance', options=alliances['alliance'], index=None, placeholder='Select Alliance')
+            if p_cols[1].button("➤", key='submit_old_alliance_player'):
+                alliance_deck_link = alliances.loc[alliances['alliance'] == alliance_name, 'link'].iat[0]
+                success, message = database.update_alliance_deck(st.session_state.game_id, alliance=alliance_name, alliance_link=alliance_deck_link, player_deck=player_deck)
+                if success:
+                    st.toast(message, icon='✔')
+                    st.rerun()
+                else:
+                    st.toast(message, icon='❌')
+
+            st.divider()
+            st.markdown(f'<p class="deck-font">Identify</p>', unsafe_allow_html=True)
+            b_cols = st.columns(4)
+            if b_cols[0].button("Find Pods"):
+                g_log = st.session_state.game_data['Game Log'][0]
+                if player_deck:
+                    c_played = g_log[st.session_state.game_data['Player'][0]]['individual_cards_played'][-1].keys()
+                else:
+                    c_played = g_log[st.session_state.game_data['Opponent'][0]]['individual_cards_played'][-1].keys()
+                houses_played = {}
+                house_cards = {}
+                for c in c_played:
+                    house = dok_api.get_card_house(c)
+                    if house in houses_played:
+                        houses_played[house] += 1
+                        house_cards[house].append(c)
+                    elif house != 'Special':
+                        houses_played[house] = 1
+                        house_cards[house] = [c]
+
+                top_houses = [k for k, _ in sorted(houses_played.items(), key=lambda item: item[1], reverse=True)[:3]]
+                for i, h in enumerate(top_houses):
+                    base_link = "https://decksofkeyforge.com/decks?"
+                    for c in house_cards[h]:
+                        base_link += f"cards={c.replace(' ', '%20')}-1&"
+                    base_link = base_link[:-1]
+                    b_cols[i + 1].link_button(h, url=base_link)
+
+            st.write('')
+
         c1, c2 = st.columns([7, 1])
         c1.markdown(f'<b class="deck-font">{deck}</b>', unsafe_allow_html=True)
-        if st.session_state.game_data['Format'][0] != 'Archon':
-            if st.session_state.game_data["Deck Link"][0] and st.session_state.game_data["Deck Link"][0] != "https://decksofkeyforge.com/":
-                c2.link_button("Deck Info", st.session_state.game_data["Deck Link"][0])
-            # elif 'name' in st.session_state and (st.session_state.name == st.session_state.game_data['Player'][0]) or ('aliases' in st.session_state['user_info'] and st.session_state.game_data['Player'][0] in st.session_state['user_info']['aliases']):
-            #     alliances = database.get_user_alliances(st.session_state.name)
-            #     with c2.popover('Add Alliance'):
-            #         st.markdown(f'<p class="deck-font">New</p>', unsafe_allow_html=True)
-            #         p_cols = st.columns([4, 3, 1], vertical_alignment='bottom')
-            #         alliance_name = p_cols[0].text_input('Name')
-            #         alliance_deck_link = p_cols[1].text_input('DoK Link')
-            #         if p_cols[2].button("➤", key='submit_new_alliance_player'):
-            #             success, message = database.add_alliance_deck(st.session_state.game_id, alliance={'name': alliance_name, 'link': alliance_deck_link}, player=st.session_state.name)
-            #             icon = ':material/check:' if success else '❌'
-            #             st.toast(message, icon=icon)
-            #             st.rerun()
-            #
-            #         st.divider()
-            #         st.markdown(f'<p class="deck-font">Existing</p>', unsafe_allow_html=True)
-            #         p_cols = st.columns([7, 1], vertical_alignment='bottom')
-            #         alliance_name = p_cols[0].selectbox('Alliance', options=alliances['alliance'], index=None, placeholder='Select Alliance')
-            #         if p_cols[1].button("➤", key='submit_old_alliance_player'):
-            #             alliance_deck_link = alliances.loc[alliances['alliance'] == alliance_name, 'link'].iat[0]
-            #             success, message = database.update_alliance_deck(st.session_state.game_id, alliance=alliance_name, alliance_link=alliance_deck_link)
-            #             if success:
-            #                 st.toast(message, icon='✔')
-            #                 st.rerun()
-            #             else:
-            #                 st.toast(message, icon='❌')
-            #
-            #         st.write('')
 
-        elif st.session_state.game_data["Deck Link"][0] and st.session_state.game_data["Deck Link"][0] != "https://decksofkeyforge.com/":
-            c2.link_button("Deck Info", st.session_state.game_data["Deck Link"][0])
-        elif st.session_state.game_data['Format'][0] != 'Sealed' and st.session_state.game_data['Format'][0] != 'Alliance':
-            if 'name' in st.session_state and (st.session_state.name == st.session_state.game_data['Player'][0]) or ('aliases' in st.session_state['user_info'] and st.session_state.game_data['Player'][0] in st.session_state['user_info']['aliases']):
+        if deck_link and deck_link != "https://decksofkeyforge.com/":
+            c2.link_button("Deck Info", deck_link)
+        elif is_current_user:
+            if format_is_archon:
                 with c2.popover("Add Deck"):
                     st.write("Paste Deck Link")
                     p_cols = st.columns([3, 1])
-                    p_deck_link = p_cols[0].text_input("", label_visibility='collapsed')
+                    p_deck_link = p_cols[0].text_input("", key='p_deck_link', label_visibility='collapsed')
                     if p_cols[1].button("➤", key='submit_p_deck'):
                         deck_code = p_deck_link.split('/')[-1]
                         if len(deck_code) == 36 and all(deck_code[i] == '-' for i in [8, 13, 18, 23]):
                             dok_data = database.get_dok_cache_deck_id(deck_code)
-                            if database.update_game_decks(st.session_state.game_id, dok_data['Deck'], "https://decksofkeyforge.com/decks/"+dok_data['ID']):
+                            if database.update_game_decks(st.session_state.game_id, dok_data['Deck'], "https://decksofkeyforge.com/decks/" + dok_data['ID']):
                                 st.success(f"Deck Updated: {dok_data['Deck']}")
                                 st.rerun()
                             else:
                                 st.error(f"Error Updating Deck Info")
                         else:
                             st.error(f"Invalid Deck Code: {deck_code}")
+            else:
+                if c2.button("Add Alliance", key='p_add_alliance'):
+                    add_alliance_modal()
+
         st.write('vs')
         c1, c2 = st.columns([7, 1])
         c1.markdown(f'<b class="deck-font">{st.session_state.game_data["Opponent Deck"][0]}</b>', unsafe_allow_html=True)
-        if st.session_state.game_data["Opponent Deck Link"][0] and st.session_state.game_data["Opponent Deck Link"][0] != "https://decksofkeyforge.com/":
-            c2.link_button("Deck Info", st.session_state.game_data["Opponent Deck Link"][0])
-        elif st.session_state.game_data['Format'][0] == 'Archon':
-            if 'name' in st.session_state and (st.session_state.name == st.session_state.game_data['Player'][0]) or ('aliases' in st.session_state['user_info'] and st.session_state.game_data['Player'][0] in st.session_state['user_info']['aliases']):
+
+        deck_link = st.session_state.game_data["Opponent Deck Link"][0]
+
+        if deck_link and deck_link != "https://decksofkeyforge.com/":
+            c2.link_button("Deck Info", deck_link)
+        elif is_current_user:
+            if format_is_archon:
                 with c2.popover("Add Deck"):
                     st.write("Paste Deck Link")
                     p_cols = st.columns([3, 1])
-                    p_deck_link = p_cols[0].text_input("", label_visibility='collapsed')
+                    p_deck_link = p_cols[0].text_input("", key='op_deck_link', label_visibility='collapsed')
                     if p_cols[1].button("➤", key='submit_op_deck'):
                         deck_code = p_deck_link.split('/')[-1]
                         if len(deck_code) == 36 and all(deck_code[i] == '-' for i in [8, 13, 18, 23]):
                             dok_data = database.get_dok_cache_deck_id(deck_code)
-                            if database.update_game_decks(st.session_state.game_id, dok_data['Deck'], "https://decksofkeyforge.com/decks/"+dok_data['ID'], player=False):
+                            if database.update_game_decks(st.session_state.game_id, dok_data['Deck'], "https://decksofkeyforge.com/decks/" + dok_data['ID'], player=False):
                                 st.success(f"Deck Updated: {dok_data['Deck']}")
                                 st.rerun()
                             else:
                                 st.error(f"Error Updating Deck Info")
                         else:
                             st.error(f"Invalid Deck Code: {deck_code}")
+            else:
+                if c2.button("Add Alliance", key='op_add_alliance'):
+                    add_alliance_modal(player_deck=False)
+
         st.write('')
         c1, c2 = st.columns([1, 13], vertical_alignment='center')
         c1.image(st.session_state.opponent_icon)
@@ -336,13 +378,85 @@ else:
                 'y_label': 'Survival Rate (%)',
                 'color': base_colors,
             },
-            # "Forge Through Rate": {
-            #     'y_values': ['Player Forge Rate', 'Opponent Forge Rate'],
-            #     'y_label': 'Forge Through Rate %',
-            #     'color': base_colors,
-            # }
+            "Forge Through Rate": {
+                'y_values': ['Player Forge Rate', 'Opponent Forge Rate'],
+                'y_label': 'Forge Through Rate %',
+                'color': base_colors,
+            }
         }
 
+        if 'Player Tokens' in game_df.columns and 'Opponent Tokens' in game_df.columns and (game_df['Player Tokens'].gt(0).any() or game_df['Opponent Tokens'].gt(0).any()):
+            chart_dict["Tokens Generated"] = {
+                'y_values': ['Player Tokens', 'Opponent Tokens'],
+                'y_label': 'Tokens',
+                'color': base_colors,
+            }
+            # st.subheader('Tokens')
+            # st.line_chart(
+            #     game_df,
+            #     x=None,
+            #     y=['Player Tokens', 'Opponent Tokens'],
+            #     x_label='Turn',
+            #     y_label='Tokens Generated',
+            #     color=[(255, 75, 75), (96, 180, 255)]
+            # )
+        elif 'Player Tokens' in game_df.columns and game_df['Player Tokens'].gt(0).any():
+            chart_dict["Tokens Generated"] = {
+                'y_values': ['Player Tokens'],
+                'y_label': 'Tokens',
+                'color': base_colors,
+            }
+            # st.subheader('Tokens')
+            # st.line_chart(
+            #     game_df,
+            #     x=None,
+            #     y=['Player Tokens'],
+            #     x_label='Turn',
+            #     y_label='Tokens Generated',
+            #     color=[(96, 180, 255)]
+            # )
+        elif 'Opponent Tokens' in game_df.columns and game_df['Opponent Tokens'].gt(0).any():
+            chart_dict["Tokens Generated"] = {
+                'y_values': ['Opponent Tokens'],
+                'y_label': 'Tokens',
+                'color': base_colors,
+            }
+            # st.subheader('Tokens')
+            # st.line_chart(
+            #     game_df,
+            #     x=None,
+            #     y=['Opponent Tokens'],
+            #     x_label='Turn',
+            #     y_label='Tokens Generated',
+            #     color=[(255, 75, 75)]
+            # )
+        elif 'Tide' in game_df.columns:
+            chart_dict["Tide"] = {
+                'y_values': ['Tide'],
+                'y_label': 'Tide',
+                'color': [(96, 180, 255)],
+            }
+            # st.subheader('Tide')
+            # st.line_chart(
+            #     game_df,
+            #     x=None,
+            #     y=['Tide'],
+            #     x_label='Turn',
+            #     y_label='Tide',
+            #     color=[(96, 180, 255)]
+            # )
+        elif 'Player Archives' in game_df.columns and 'Opponent Archives' in game_df.columns and (game_df['Player Archives'].gt(0).any() or game_df['Opponent Archives'].gt(0).any()):
+            chart_dict["Archives"] = {
+                'y_values': ['Player Archives', 'Opponent Archives'],
+                'y_label': 'Archives',
+                'color': base_colors,
+            }
+        elif 'Player Discard' in game_df.columns and 'Opponent Discard' in game_df.columns and (game_df['Player Discard'].gt(0).any() or game_df['Opponent Discard'].gt(0).any()):
+            chart_dict["Discard Pile"] = {
+                'y_values': ['Player Discard', 'Opponent Discard'],
+                'y_label': 'Discard Pile',
+                'color': base_colors,
+            }
         for i, chart in enumerate(chart_dict.keys()):
             if i % 2 == 0:
                 col = c1
@@ -357,48 +471,6 @@ else:
                 x_label='Turn',
                 y_label=chart_dict[chart]['y_label'],
                 color=chart_dict[chart]['color']
-            )
-
-        if 'Tide' in game_df.columns:
-            st.subheader('Tide')
-            st.line_chart(
-                game_df,
-                x=None,
-                y=['Tide'],
-                x_label='Turn',
-                y_label='Tide',
-                color=[(96, 180, 255)]
-            )
-
-        if 'Player Tokens' in game_df.columns and 'Opponent Tokens' in game_df.columns and (game_df['Player Tokens'].gt(0).any() or game_df['Opponent Tokens'].gt(0).any()):
-            st.subheader('Tokens')
-            st.line_chart(
-                game_df,
-                x=None,
-                y=['Player Tokens', 'Opponent Tokens'],
-                x_label='Turn',
-                y_label='Tokens Generated',
-                color=[(255, 75, 75), (96, 180, 255)]
-            )
-        elif 'Player Tokens' in game_df.columns and game_df['Player Tokens'].gt(0).any():
-            st.subheader('Tokens')
-            st.line_chart(
-                game_df,
-                x=None,
-                y=['Player Tokens'],
-                x_label='Turn',
-                y_label='Tokens Generated',
-                color=[(96, 180, 255)]
-            )
-        elif 'Opponent Tokens' in game_df.columns and game_df['Opponent Tokens'].gt(0).any():
-            st.subheader('Tokens')
-            st.line_chart(
-                game_df,
-                x=None,
-                y=['Opponent Tokens'],
-                x_label='Turn',
-                y_label='Tokens Generated',
-                color=[(255, 75, 75)]
             )
 
         c1, c2 = st.columns(2)

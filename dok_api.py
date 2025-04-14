@@ -52,6 +52,7 @@ def pull_card_data():
 def load_card_data():
     card_data = pd.read_csv("card_log.csv")
     crd = {}
+    chd = {}
     for idx, row in card_data.iterrows():
         card_rarities = []
         card_sets = []
@@ -67,10 +68,19 @@ def load_card_data():
         else:
             crd[row['cardTitle']] = "Special"
 
-    cid = card_data.set_index('cardTitle')['cardTitleUrl'].to_dict()
-    return card_data, cid, crd
+        houses = ast.literal_eval(row['houses'])
+        for nh in ['Elders', 'IronyxRebels', 'Redemption']:
+            if nh in houses:
+                houses.remove(nh)
+        if len(houses) == 1:
+            chd[row['cardTitle']] = houses[0]
+        else:
+            chd[row['cardTitle']] = "Special"
 
-card_df, card_image_dict, card_rarity_dict = load_card_data()
+    cid = card_data.set_index('cardTitle')['cardTitleUrl'].to_dict()
+    return card_data, cid, crd, chd
+
+card_df, card_image_dict, card_rarity_dict, card_house_dict = load_card_data()
 
 
 def fix_card_string(card_name):
@@ -98,6 +108,16 @@ def get_card_rarity(card_name):
         return None
 
 
+def get_card_house(card_name):
+    fixed_string = fix_card_string(card_name)
+    if card_name in card_house_dict:
+        return card_house_dict[card_name]
+    elif fixed_string in card_house_dict:
+        return card_house_dict[fixed_string]
+    else:
+        return None
+
+
 def check_card_type(card_name):
     result = card_df.loc[card_df['cardTitle'] == card_name, 'cardType']
     return result.iloc[0] if not result.empty else None
@@ -113,3 +133,4 @@ def test_api():
 
 test_api()
 
+# https://decksofkeyforge.com/decks/4165762c-f032-4097-b71a-9e6b8e768dcb

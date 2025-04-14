@@ -10,6 +10,7 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from PIL import Image, ImageFilter, ImageEnhance
 import numpy as np
 import math
+import io
 
 import dok_api
 
@@ -152,7 +153,11 @@ set_dict = {
         'Color': '#838383',
         'Full Name': 'VAULT_MASTERS_2024',
     },
-
+    'Disc': {
+        'Image': 'https://decksofkeyforge.com/static/media/vm23-dark.d797a995bef735704fac3c8c41e1c134.svg',
+        'Color': '#bedfe5',
+        'Full Name': 'DISCOVERY',
+    },
 }
 
 
@@ -187,8 +192,12 @@ def calculate_ttw(player_tav, player_data, opponent_amber_defense):
     amber_deltas = []
     reap_rates = []
     for i in range(len(player_tav)):
-        amber_remaining = 18 - player_tav[i]
+        # amber_remaining = 18 - player_tav[i]
+        amber = player_data['amber'][i]
+        key_cost = player_data['key_cost'][i]
         keys = player_data['keys'][i]
+        keys_remaining = 3 - keys
+        amber_remaining = keys_remaining * key_cost - amber
         avg_creatures = sum(player_data['creatures'][:i]) / (i+1)
         if avg_creatures > 0:
             reap_rate = player_data['amber_reaped'][i] / (((i+1) * avg_creatures) / 2)
@@ -269,16 +278,16 @@ def calculate_ex_amber(player_data, opponent_data, first_player, opponent_name, 
     return player_exa, op_exa, 1-op_def_adj, 1-p_def_adj
 
 
-def analyze_deck(username, log, games, high_contrast=False):
+def analyze_deck(username, log, games, game_format, high_contrast=False):
     player_data = log[username]
     opponent_data = log['opponent']
 
-    deck_analysis_data = create_deck_analysis_graphs(player_data, username, opponent_data, 'opponent', games, high_contrast)
+    deck_analysis_data = create_deck_analysis_graphs(player_data, username, opponent_data, 'opponent', games, game_format, high_contrast)
 
     return deck_analysis_data
 
 
-def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_name, games, high_contrast=False):
+def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_name, games, game_format, high_contrast=False):
     player_tav, opponent_tav, p_amber_gained, op_amber_gained, p_amber_defense, op_amber_defense, p_forge_rate, op_forge_rate = calculate_tav(player_data, opponent_data)
     player_ttw, player_delta, player_reap_rate = calculate_ttw(player_tav, player_data, op_amber_defense[-1])
     opponent_ttw, opponent_delta, opponent_reap_rate = calculate_ttw(opponent_tav, opponent_data, p_amber_defense[-1])
@@ -290,7 +299,11 @@ def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_n
         min_threshold = round(games/12)
     else:
         min_threshold = 1
-    player_house_calls = make_house_image_deck(player_data['house_calls'], min_threshold=min_threshold)
+    if game_format.lower() == 'sealed':
+        p_graph = False
+    else:
+        p_graph = True
+    player_house_calls = make_house_image_deck(player_data['house_calls'], min_threshold=min_threshold, player_graph=p_graph)
     opponent_house_calls = make_house_image_deck(opponent_data['house_calls'], min_threshold=min_threshold, player_graph=False)
     player_card_data = get_card_information(player_data, analysis_type='Deck')
     opponent_card_data = get_card_information(opponent_data, analysis_type='Deck')
@@ -356,7 +369,7 @@ def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_n
     # reap_trade_advantage = [reap - trade for reap, trade in zip(reap_advantage, trade_advantage)]
 
     # Create the DataFrame
-    game_dataframe = pd.DataFrame({
+    game_df_dict = {
         'Player Amber': player_tav,
         'Opponent Amber': opponent_tav,
         'Player Amber Defense': p_amber_defense,
@@ -375,12 +388,27 @@ def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_n
         'Opponent Delta': opponent_delta,
         'Player Reap Rate': player_reap_rate,
         'Opponent Reap Rate': opponent_reap_rate,
+        'Player Deck': player_data['deck_count'],
+        'Opponent Deck': opponent_data['deck_count'],
+        'Player Discard': player_data['discard_count'],
+        'Opponent Discard': opponent_data['discard_count'],
+        'Player Archives': player_data['archives_count'],
+        'Opponent Archives': opponent_data['archives_count'],
+        'Player Purged': player_data['purged_count'],
+        'Opponent Purged': opponent_data['purged_count'],
         # 'Reap Advantage': reap_advantage,
         # 'Kill Advantage': kill_advantage,
         # 'Trade Advantage': trade_advantage,
         # 'Reap/Kill Advantage': reap_kill_advantage,
         # 'Reap/Trade Advantage': reap_trade_advantage
-    })
+    }
+    if 'tokens_created' in player_data:
+        game_df_dict['Player Tokens'] = player_data['tokens_created']
+        game_df_dict['Opponent Tokens'] = opponent_data['tokens_created']
+    # elif 'tide_value' in player_data:
+    #     game_df_dict['Tide'] = player_data['tide_value']
+
+    game_dataframe = pd.DataFrame(game_df_dict)
     # game_dataframe = pd.DataFrame({'Player Amber': player_tav, 'Opponent Amber': opponent_tav, 'Player Amber Defense': p_amber_defense, 'Opponent Amber Defense': op_amber_defense, 'Player Cards': player_data['cards_played'], 'Opponent Cards': opponent_data['cards_played'], 'Player Creatures': player_data['creatures'], 'Opponent Creatures': opponent_data['creatures'], 'Player Survival Rate': player_survival_rate, 'Opponent Survival Rate': opponent_survival_rate, 'Player Prediction': player_ttw, 'Opponent Prediction': opponent_ttw, 'Player Delta': player_delta, 'Opponent Delta': opponent_delta, 'Player Reap Rate': player_reap_rate, 'Opponent Reap Rate': opponent_reap_rate})
     # game_dataframe['Reap Advantage'] = min(25, max(1, (18 - game_dataframe['Opponent Amber']) / (1-game_dataframe['Player Amber Defense']/100)*(game_dataframe['Opponent Creatures'] * game_dataframe['Opponent Reap Rate'] + game_dataframe['Opponent Delta']))) - min(25, max(1, (18 - (game_dataframe['Player Amber'] + 1)) / (1-game_dataframe['Opponent Amber Defense']/100)*(game_dataframe['Player Creatures'] * game_dataframe['Player Reap Rate'] + game_dataframe['Player Delta'])))
     # game_dataframe['Kill Advantage'] = min(25, max(1, (18 - game_dataframe['Opponent Amber']) / (1-game_dataframe['Player Amber Defense']/100)*(max(0, game_dataframe['Opponent Creatures'] - 1) * game_dataframe['Opponent Reap Rate'] + game_dataframe['Opponent Delta']))) - min(25, max(1, (18 - game_dataframe['Player Amber']) / (1-game_dataframe['Opponent Amber Defense']/100)*(game_dataframe['Player Creatures'] * game_dataframe['Player Reap Rate'] + game_dataframe['Player Delta'])))
@@ -584,7 +612,7 @@ def create_game_analysis_graphs(player_data, username, opponent_data, opponent_n
     player_card_data = get_card_information(player_data, player_individual_survival_rates)
     opponent_card_data = get_card_information(opponent_data, opponent_individual_survival_rates)
     tide = calculate_tide(player_data)
-    game_dataframe = pd.DataFrame({'Player Amber': player_tav, 'Opponent Amber': opponent_tav, 'Player Amber Gained': p_amber_gained, 'Opponent Amber Gained': op_amber_gained, 'Player Amber Defense': p_amber_defense, 'Opponent Amber Defense': op_amber_defense, 'Player Forge Rate': p_forge_rate, 'Opponent Forge Rate': op_forge_rate, 'Player Cards': player_data['cards_played'], 'Opponent Cards': opponent_data['cards_played'], 'Player Creatures': player_data['creatures'], 'Opponent Creatures': opponent_data['creatures'], 'Player Survival Rate': player_survival_rate, 'Opponent Survival Rate': opponent_survival_rate, 'Player Prediction': player_ttw, 'Opponent Prediction': opponent_ttw, 'Player Delta': player_delta, 'Opponent Delta': opponent_delta, 'Player Reap Rate': player_reap_rate, 'Opponent Reap Rate': opponent_reap_rate})
+    game_dataframe = pd.DataFrame({'Player Amber': player_tav, 'Opponent Amber': opponent_tav, 'Player Amber Gained': p_amber_gained, 'Opponent Amber Gained': op_amber_gained, 'Player Amber Defense': p_amber_defense, 'Opponent Amber Defense': op_amber_defense, 'Player Forge Rate': p_forge_rate, 'Opponent Forge Rate': op_forge_rate, 'Player Cards': player_data['cards_played'], 'Opponent Cards': opponent_data['cards_played'], 'Player Discard': player_data['discard_count'], 'Opponent Discard': opponent_data['discard_count'], 'Player Archives': player_data['archives_count'], 'Opponent Archives': opponent_data['archives_count'], 'Player Creatures': player_data['creatures'], 'Opponent Creatures': opponent_data['creatures'], 'Player Survival Rate': player_survival_rate, 'Opponent Survival Rate': opponent_survival_rate, 'Player Prediction': player_ttw, 'Opponent Prediction': opponent_ttw, 'Player Delta': player_delta, 'Opponent Delta': opponent_delta, 'Player Reap Rate': player_reap_rate, 'Opponent Reap Rate': opponent_reap_rate})
     if tide:
         game_dataframe['Tide'] = tide
     if 'tokens_created' in player_data:
@@ -794,11 +822,7 @@ def amber_sources(values, max_y, name, save, contrast=False):
     # fig.update_traces(textposition='inside', textinfo='value+percent+label')
     fig.update_layout(title={'text': f''}, width=420, height=480, showlegend=False)  # set chart title
     fig.update_yaxes(range=[0, max_y])
-    # if name == USERNAME:
-    #     save_name = "hero"
-    # else:
-    #     save_name = "villain"
-    # fig.write_image(f"images/{save_name}_amber_sources_{save}.png", scale=10)  # save to .png file
+
     return fig
 
 
@@ -1092,11 +1116,11 @@ def make_house_image_deck(calls, min_threshold=0, player_graph=True):
 
         ax.text(x, 0.05, i+1, color='white', fontsize=axis_text_size, ha='center')
 
-    if player_graph:
-        save_name = 'player_amber_graph.png'
-    else:
-        save_name = 'opponent_amber_graph.png'
-    plt.savefig(save_name, dpi=300, bbox_inches='tight', facecolor=bg_color)
+    # Save the plot to a BytesIO buffer instead of a file
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', dpi=300, bbox_inches='tight', facecolor=bg_color)
+    buf.seek(0)  # Move to the beginning of the buffer
 
-    image = Image.open(save_name)
+    # Open the image directly from memory
+    image = Image.open(buf)
     return image

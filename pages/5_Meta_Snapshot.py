@@ -128,7 +128,7 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 def get_meta_games():
     with st.spinner('Getting games...'):
         recent_games = database.get_all_recent_games()
-        recent_games = recent_games[recent_games['Opponent Deck'] != '---']
+        recent_games = recent_games[recent_games['Format'].apply(lambda x: 'Archon' in x)]
         st.session_state.recent_games = recent_games
 
 
@@ -148,6 +148,7 @@ def process_meta_games():
         dok_data_dict = {}
         set_data_dict = {k: 0 for k in [ls[0] for ls in database.set_conversion_dict.values()]}
         set_win_dict = {k: {'wins': 0, 'losses': 0} for k in [ls[0] for ls in database.set_conversion_dict.values()]}
+        set_vs_set_dict = {k: {ik: {'wins': 0, 'losses': 0} for ik in [ils[0] for ils in database.set_conversion_dict.values()] if ik != k} for k in [ls[0] for ls in database.set_conversion_dict.values()]}
         house_data_dict = {k.title() if k != 'staralliance' else 'StarAlliance': 0 for k in graphing.house_colors.keys()}
         house_win_dict = {k.title() if k != 'staralliance' else 'StarAlliance': 0 for k in graphing.house_colors.keys()}
         cards_played_dict = {}
@@ -226,36 +227,60 @@ def process_meta_games():
                                 house_win_dict[house] = 1
 
             if player_set != opponent_set:
-                if opponent_won:
-                    if opponent_set:
-                        if opponent_set in set_win_dict:
-                            set_win_dict[opponent_set]['wins'] += 1
-                        else:
-                            set_win_dict[opponent_set]['wins'] = 1
-                    if player_set:
-                        if player_set in set_win_dict:
-                            set_win_dict[player_set]['losses'] += 1
-                        else:
-                            set_win_dict[player_set]['losses'] = 1
-                else:
-                    if opponent_set:
-                        if opponent_set in set_win_dict:
-                            set_win_dict[opponent_set]['losses'] += 1
-                        else:
-                            set_win_dict[opponent_set]['losses'] = 1
-                    if player_set:
-                        if player_set in set_win_dict:
-                            set_win_dict[player_set]['wins'] += 1
-                        else:
-                            set_win_dict[player_set]['wins'] = 1
+                if opponent_set:
+                    result = 'wins' if opponent_won else 'losses'
+                    set_win_dict.setdefault(opponent_set, {'wins': 0, 'losses': 0})[result] += 1
+                    if player_set and opponent_set != player_set:
+                        set_vs_set_dict[opponent_set].setdefault(player_set, {'wins': 0, 'losses': 0})[result] += 1
+
+                if player_set:
+                    result = 'losses' if opponent_won else 'wins'
+                    set_win_dict.setdefault(player_set, {'wins': 0, 'losses': 0})[result] += 1
+                    if player_set != opponent_set:
+                        set_vs_set_dict[player_set].setdefault(opponent_set, {'wins': 0, 'losses': 0})[result] += 1
+                # if opponent_won:
+                #     if opponent_set:
+                #         if opponent_set in set_win_dict:
+                #             set_win_dict[opponent_set]['wins'] += 1
+                #         else:
+                #             set_win_dict[opponent_set]['wins'] = 1
+                #     if player_set:
+                #         if player_set in set_win_dict:
+                #             set_win_dict[player_set]['losses'] += 1
+                #         else:
+                #             set_win_dict[player_set]['losses'] = 1
+                # else:
+                #     if opponent_set:
+                #         if opponent_set in set_win_dict:
+                #             set_win_dict[opponent_set]['losses'] += 1
+                #         else:
+                #             set_win_dict[opponent_set]['losses'] = 1
+                #     if player_set:
+                #         if player_set in set_win_dict:
+                #             set_win_dict[player_set]['wins'] += 1
+                #         else:
+                #             set_win_dict[player_set]['wins'] = 1
 
         cards_played_df = pd.DataFrame(list(cards_played_dict.items()), columns=['Card', 'Played'])
+        rarity_val_dict = {
+            'Common': 1,
+            'Uncommon': 2.7,
+            'Rare': 9,
+            'Special': 9,
+        }
+        for idx, row in cards_played_df.iterrows():
+            rarity = dok_api.get_card_rarity(row['Card'])
+            if not rarity:
+                print(row['Card'])
+        cards_played_df['Weighted_Played'] = cards_played_df.apply(lambda r: r['Played'] * rarity_val_dict[dok_api.get_card_rarity(r['Card'])], axis=1)
+
         cards_played_df = cards_played_df.sort_values(by='Played', ascending=False)
 
         st.session_state.meta_snapshot['games_played_day'] = games_played_day
         st.session_state.meta_snapshot['games_played'] = games_played
         st.session_state.meta_snapshot['set_data_dict'] = set_data_dict
         st.session_state.meta_snapshot['set_win_dict'] = set_win_dict
+        st.session_state.meta_snapshot['set_vs_set_dict'] = set_vs_set_dict
         st.session_state.meta_snapshot['house_data_dict'] = house_data_dict
         st.session_state.meta_snapshot['house_win_dict'] = house_win_dict
         st.session_state.meta_snapshot['cards_played_df'] = cards_played_df
@@ -273,6 +298,7 @@ games_played_day = st.session_state.meta_snapshot['games_played_day']
 games_played = st.session_state.meta_snapshot['games_played']
 set_data_dict = st.session_state.meta_snapshot['set_data_dict']
 set_win_dict = st.session_state.meta_snapshot['set_win_dict']
+set_vs_set_dict = st.session_state.meta_snapshot['set_vs_set_dict']
 house_data_dict = st.session_state.meta_snapshot['house_data_dict']
 house_win_dict = st.session_state.meta_snapshot['house_win_dict']
 cards_played_df = st.session_state.meta_snapshot['cards_played_df']
@@ -310,18 +336,36 @@ with st.container(border=True):
 
 st.subheader('Set Winrates')
 with st.container(border=True):
-    cols = st.columns(len(set_data_dict))
+    cols = st.columns([0.4] + [1 for _ in range(len(set_data_dict))], vertical_alignment='top')
     for i, h in enumerate(set_data_dict.keys()):
-        cols[i].markdown(f'<b class="plain-font">  {h}</b>', unsafe_allow_html=True)
+        i = i+1
+        cols[i].markdown(f'<b class="plain-font">{h}</b>', unsafe_allow_html=True)
         if set_data_dict[h] != 0:
             winrate = round(100 * set_win_dict[h]['wins'] / (set_win_dict[h]['wins'] + set_win_dict[h]['losses']))
         else:
             winrate = 0
 
         if winrate >= 50:
-            cols[i].markdown(f'<b class="hero-italic-font">  {winrate}%</b>', unsafe_allow_html=True)
+            cols[i].markdown(f'<b class="hero-italic-font">{winrate}%</b>', unsafe_allow_html=True)
         else:
-            cols[i].markdown(f'<b class="villain-italic-font">  {winrate}%</b>', unsafe_allow_html=True)
+            cols[i].markdown(f'<b class="villain-italic-font">{winrate}%</b>', unsafe_allow_html=True)
+
+# flattened_data = []
+# st.write(set_vs_set_dict)
+# for k, subdict in set_vs_set_dict.items():
+#     for ik, results in subdict.items():
+#         st.write(k, ik, results)
+#         if results['wins'] + results['losses'] > 0:
+#             set_vs_set_dict[k][ik] = results['wins'] / (results['wins'] + results['losses'])
+#         else:
+#             set_vs_set_dict[k][ik] = None
+
+# set_wr_df = pd.DataFrame.from_dict(set_vs_set_dict)
+#
+# for col in set_wr_df.columns:
+#     set_wr_df[col] *= 100
+#
+# st.dataframe(set_wr_df.transpose())
 
 # Make House Graph
 house_graph_dict = {k: round((100 * v / games_played) / 2) for k, v in house_data_dict.items()}
@@ -333,8 +377,9 @@ with st.container(border=True):
 
 st.subheader('House Winrates')
 with st.container(border=True):
-    cols = st.columns(len(house_data_dict))
+    cols = st.columns([0.3] + [1 for _ in range(len(house_data_dict))], vertical_alignment='top')
     for i, h in enumerate(house_data_dict.keys()):
+        i = i+1
         cols[i].image(graphing.house_dict[h]['Image'])
         if house_data_dict[h] != 0:
             winrate = round(100 * house_win_dict[h] / house_data_dict[h])
@@ -355,7 +400,7 @@ with st.container(border=True):
         if j > 9:
             i = j-10
 
-        card_cols[i].image(dok_api.card_image_dict[row['Card']])
+        card_cols[i].image(dok_api.get_card_image(row['Card']))
 
         frequency = round((100 * row['Played'] / games_played) / 2)
         if frequency == 100:

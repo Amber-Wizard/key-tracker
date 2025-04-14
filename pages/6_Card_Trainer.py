@@ -109,7 +109,7 @@ def check_answer(x):
         'guess_4': {'disabled': True, 'primary': 'secondary', 'icon': '❌'},
     }
 
-    st.session_state.button_dict[f'guess_{st.session_state.real_location}'] = {'disabled': False, 'primary': 'primary', 'icon': '✔'}
+    st.session_state.button_dict[f'guess_{st.session_state.real_location}'] = {'disabled': False, 'primary': 'primary', 'icon': 'Next ►'}
 
     if x == st.session_state.real_location:
         st.session_state.streak += 1
@@ -153,20 +153,21 @@ def assign_card():
     card_type = card_row['cardType']
     card_houses = ast.literal_eval(card_row['houses'])
 
+    # Remove the card itself
+    filtered_df = filtered_df[filtered_df['cardTitle'] != card_name]
+
     # Filter to only cards of the same type (if possible)
-    type_df = filtered_df[filtered_df['cardType'] != card_type]
+    type_df = filtered_df[filtered_df['cardType'] == card_type]
+
     if len(type_df) < 4:
         type_df = filtered_df
 
-    # Remove the card itself
-    type_df = type_df[type_df['cardTitle'] != card_name]
-
     # Filter to only cards of the same house (if possible)
-    pattern = '|'.join(card_houses)
+    h_pattern = '|'.join(card_houses)
 
-    match_df = type_df[type_df['houses'].str.contains(pattern, case=False, na=False)]
+    match_df = type_df[type_df['houses'].str.contains(h_pattern, case=False, na=False)]
 
-    if len(match_df) < 3:
+    if len(match_df) < 4:
         match_df = type_df
 
     # Assign fake cards
@@ -246,68 +247,72 @@ if 'filtered_df' not in st.session_state:
 if 'current_index' not in st.session_state:
     st.session_state.current_index = 0
 
-if 'card_row' not in st.session_state:
-    assign_card()
+if len(st.session_state.filtered_df) > 500:
+    st.error("Too many cards. Please add additional filters.")
+else:
 
-if 'revealed' not in st.session_state:
-    st.session_state.revealed = False
+    if 'card_row' not in st.session_state:
+        assign_card()
 
-if 'button_dict' not in st.session_state:
-    reset_buttons()
+    if 'revealed' not in st.session_state:
+        st.session_state.revealed = False
 
-if 'streak' not in st.session_state:
-    st.session_state.streak = 0
+    if 'button_dict' not in st.session_state:
+        reset_buttons()
 
-if 'correct' not in st.session_state:
-    st.session_state.correct = 0
+    if 'streak' not in st.session_state:
+        st.session_state.streak = 0
 
-if mode == 'title':
-    c_name = st.session_state.card_name
+    if 'correct' not in st.session_state:
+        st.session_state.correct = 0
 
-    cols = st.columns([1.75, 0.25], vertical_alignment='center')
-    cols[0].progress(st.session_state.current_index / len(st.session_state.filtered_df))
-    if st.session_state.current_index > 0:
-        current_guess_rate = min(100, round(100 * st.session_state.correct / st.session_state.current_index))
-        if current_guess_rate == 100:
-            cols[1].markdown(f'<b class="hero-italic-font">{current_guess_rate}%</b>', unsafe_allow_html=True)
-        elif current_guess_rate >= 75:
-            cols[1].markdown(f'<p class="hero-font">{current_guess_rate}%</p>', unsafe_allow_html=True)
-        elif current_guess_rate >= 50:
-            cols[1].markdown(f'<p class="plain-font">{current_guess_rate}%</p>', unsafe_allow_html=True)
-        elif current_guess_rate >= 25:
-            cols[1].markdown(f'<p class="villain-font">{current_guess_rate}%</p>', unsafe_allow_html=True)
-        else:
-            cols[1].markdown(f'<b class="villain-italic-font">{current_guess_rate}%</b>', unsafe_allow_html=True)
+    if mode == 'title':
+        c_name = st.session_state.card_name
 
-    cols = st.columns([0.5, 1, 0.2, 0.15, 0.15], vertical_alignment='center')
-    with cols[1].container(border=True, height=60):
-        st.markdown(f'<div style="text-align: center;">{c_name}</div>', unsafe_allow_html=True)
+        cols = st.columns([1.75, 0.25], vertical_alignment='center')
+        cols[0].progress(st.session_state.current_index / len(st.session_state.filtered_df))
+        if st.session_state.current_index > 0:
+            current_guess_rate = min(100, round(100 * st.session_state.correct / st.session_state.current_index))
+            if current_guess_rate == 100:
+                cols[1].markdown(f'<b class="hero-italic-font">{current_guess_rate}%</b>', unsafe_allow_html=True)
+            elif current_guess_rate >= 75:
+                cols[1].markdown(f'<p class="hero-font">{current_guess_rate}%</p>', unsafe_allow_html=True)
+            elif current_guess_rate >= 50:
+                cols[1].markdown(f'<p class="plain-font">{current_guess_rate}%</p>', unsafe_allow_html=True)
+            elif current_guess_rate >= 25:
+                cols[1].markdown(f'<p class="villain-font">{current_guess_rate}%</p>', unsafe_allow_html=True)
+            else:
+                cols[1].markdown(f'<b class="villain-italic-font">{current_guess_rate}%</b>', unsafe_allow_html=True)
 
-    if 'streak' in st.session_state and st.session_state.streak > 2:
-        cols[3].markdown(f'<b class="plain-font">{st.session_state.streak}</b>', unsafe_allow_html=True)
-        cols[4].image('https://community.wacom.com/en-de/wp-content/uploads/sites/20/2023/10/Flame_GIF_1.gif')
+        cols = st.columns([0.5, 1, 0.2, 0.15, 0.15], vertical_alignment='center')
+        with cols[1].container(border=True, height=60):
+            st.markdown(f'<div style="text-align: center;">{c_name}</div>', unsafe_allow_html=True)
 
-    st.write(' ')
-    st.write(' ')
+        if 'streak' in st.session_state and st.session_state.streak > 2:
+            cols[3].markdown(f'<b class="plain-font">{st.session_state.streak}</b>', unsafe_allow_html=True)
+            cols[4].image('https://community.wacom.com/en-de/wp-content/uploads/sites/20/2023/10/Flame_GIF_1.gif')
 
-    card_images = st.session_state.fake_images
+        st.write(' ')
+        st.write(' ')
 
-    _, c1, _, c2, _ = st.columns([0.2, 1, 0.3, 1, 0.2])
+        card_images = st.session_state.fake_images
 
-    button_dict = st.session_state.button_dict
+        _, c1, _, c2, _ = st.columns([0.2, 1, 0.3, 1, 0.2])
 
-    c1.image(card_images[0])
-    c2.image(card_images[1])
+        button_dict = st.session_state.button_dict
 
-    c1.button(button_dict['guess_1']['icon'], use_container_width=True, key='guess_1', disabled=button_dict['guess_1']['disabled'], type=button_dict['guess_1']['primary'], on_click=submit_guess, args=[1])
+        c1.image(card_images[0])
+        c2.image(card_images[1])
 
-    c2.button(button_dict['guess_2']['icon'], use_container_width=True, key='guess_2', disabled=button_dict['guess_2']['disabled'], type=button_dict['guess_2']['primary'], on_click=submit_guess, args=[2])
+        c1.button(button_dict['guess_1']['icon'], use_container_width=True, key='guess_1', disabled=button_dict['guess_1']['disabled'], type=button_dict['guess_1']['primary'], on_click=submit_guess, args=[1])
 
-    c1.image(card_images[2])
-    c2.image(card_images[3])
+        c2.button(button_dict['guess_2']['icon'], use_container_width=True, key='guess_2', disabled=button_dict['guess_2']['disabled'], type=button_dict['guess_2']['primary'], on_click=submit_guess, args=[2])
 
-    c1.button(button_dict['guess_3']['icon'], use_container_width=True, key='guess_3', disabled=button_dict['guess_3']['disabled'], type=button_dict['guess_3']['primary'], on_click=submit_guess, args=[3])
-    c2.button(button_dict['guess_4']['icon'], use_container_width=True, key='guess_4', disabled=button_dict['guess_4']['disabled'], type=button_dict['guess_4']['primary'], on_click=submit_guess, args=[4])
+        c1.image(card_images[2])
+        c2.image(card_images[3])
+
+        c1.button(button_dict['guess_3']['icon'], use_container_width=True, key='guess_3', disabled=button_dict['guess_3']['disabled'], type=button_dict['guess_3']['primary'], on_click=submit_guess, args=[3])
+        c2.button(button_dict['guess_4']['icon'], use_container_width=True, key='guess_4', disabled=button_dict['guess_4']['disabled'], type=button_dict['guess_4']['primary'], on_click=submit_guess, args=[4])
 
 
 

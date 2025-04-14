@@ -5,6 +5,13 @@ import database
 import graphing
 
 
+special_sets = {
+    'tide_sets': ['DARK_TIDINGS'],
+    'token_sets': ['WINDS_OF_EXCHANGE', 'TOKENS_OF_CHANGE'],
+    'discard_sets': ['GRIM_REMINDERS'],
+}
+
+
 def get_turn_played(player_data, card_name, analysis_type='replay'):
     if analysis_type == 'replay':
         return next((i for i, d in enumerate(player_data['individual_cards_played']) if card_name in d), -1) + 1
@@ -12,9 +19,7 @@ def get_turn_played(player_data, card_name, analysis_type='replay'):
         return player_data['turn_played'][-1].get(card_name, 0)
 
 
-# def analyze_cards(deck_games, pilot):
-
-def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
+def analyze_deck(deck_name, pilot, expansion, aliases=None, graphs=True, cards=True):
     deck_games = database.get_deck_games(pilot, deck_name, aliases=aliases)
     aggregate_data = {pilot: {'turns': [],
                               'cards_played': [],
@@ -36,6 +41,11 @@ def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
                               'card_losses': {},
                               'amber': [],
                               'keys': [],
+                              'key_cost': [],
+                              'deck_count': [],
+                              'discard_count': [],
+                              'archives_count': [],
+                              'purged_count': [],
                               'checks': [],
                               'checked_keys': [],
                               'creatures': [],
@@ -65,6 +75,11 @@ def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
                                    'card_losses': {},
                                    'amber': [],
                                    'keys': [],
+                                   'key_cost': [],
+                                   'deck_count': [],
+                                   'discard_count': [],
+                                   'archives_count': [],
+                                   'purged_count': [],
                                    'checks': [],
                                    'checked_keys': [],
                                    'creatures': [],
@@ -77,7 +92,18 @@ def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
                                    'deaths': [],
                                    'survival_rate': []}}
 
-    basic_stat_list = ['cards_played', 'amber', 'keys', 'checks', 'creatures', 'amber_icons', 'amber_effect', 'amber_reaped', 'steal']
+    basic_stat_list = ['cards_played', 'amber', 'keys', 'key_cost', 'checks', 'creatures', 'amber_icons', 'amber_effect', 'amber_reaped', 'steal', 'deck_count', 'discard_count', 'archives_count', 'purged_count']
+
+    extra_stat = None
+    if expansion in special_sets['token_sets']:
+        extra_stat = 'tokens_created'
+        aggregate_data[pilot][extra_stat] = []
+        aggregate_data['opponent'][extra_stat] = []
+        basic_stat_list.append(extra_stat)
+    # elif expansion in special_sets['tide_sets']:
+    #     extra_stat = 'tide_value'
+    #     aggregate_data[pilot][extra_stat] = []
+
     basic_stat_dict = {k: 0 for k in basic_stat_list}
     stat_turn_vals = []
 
@@ -100,8 +126,11 @@ def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
         else:
             sp_list = [True, False]
             turn_list = aggregate_data[pilot]['individual_cards_played_turn']['second']
+        try:
+            player_data = game_data[player_name]
+        except:
+            print(f"Error getting player data (Deck Analysis): \n    Player Name - {player_name} \n    Keys - {game_data.keys()} \n     ID - {row['ID'][0]}")
 
-        player_data = game_data[player_name]
         opponent_data = game_data[opponent_name]
         if 'player_hand' in game_data:
             player_hand = game_data['player_hand']
@@ -286,7 +315,7 @@ def analyze_deck(deck_name, pilot, aliases=None, graphs=True, cards=True):
         p_agg['turns'].append(1)  # add 1 in case no 1's appear
         first_one_index = p_agg['turns'].index(1)  # find first 1
         p_agg['turns'] = p_agg['turns'][:first_one_index]  # remove up to first 1
-        for stat in ['cards_played', 'amber', 'keys', 'checks', 'creatures', 'amber_icons', 'amber_effect', 'amber_reaped', 'steal']:
+        for stat in basic_stat_list:
             p_agg[stat] = p_agg[stat][:first_one_index]  # trim stat to first 1
             for i, turn_stats in enumerate(stat_turn_vals):
                 if i < len(p_agg[stat]):
