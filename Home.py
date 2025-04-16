@@ -88,7 +88,7 @@ else:
 
     c2.image(st.session_state.settings['icon_link'])
 
-versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0", "0.6.1", "0.7.0", "0.8.0", "0.9.0", "0.10.0"]
+versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0", "0.6.1", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.10.1"]
 
 changes = [
     [
@@ -177,6 +177,10 @@ changes = [
         'Added Meta Winrate',
         'Added Flex Graph',
         'Added Tokens Graph (Deck Analysis)',
+    ],
+    [
+        'Added Tooltips',
+        'Added Card Image Column (Cards Data)',
     ]
 ]
 
