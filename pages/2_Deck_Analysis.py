@@ -646,12 +646,12 @@ else:
                     h_dp = round(100 * (1 - house_scores[house]['Dependence']['Wins'] / house_scores[house]['Dependence']['Games']))
 
                     with cols[i].container(border=True):
-                        st.markdown(f'<b class="plain-font">{house} Strength</b>', unsafe_allow_html=True)
+                        st.markdown(f'<b class="plain-font">{house} Strength</b>', unsafe_allow_html=True, help="House strength is the average winrate among cards of a certain house in your deck (when they are played)")
                         c1, c2, _ = st.columns([2.8, 1, 0.2])
                         c1.metric(f'{house} Strength', value=h_wr, delta=round(h_wr - winrate), label_visibility='collapsed')
                         c2.image(house_dict[house]['Image'])
                         st.divider()
-                        st.markdown(f'<b class="plain-font">{house} Dependence</b>', unsafe_allow_html=True)
+                        st.markdown(f'<b class="plain-font">{house} Dependence</b>', unsafe_allow_html=True, help="House dependence is the average LOSS rate among cards of a certain house in your deck (when they are NOT played)")
                         st.metric(f'{house} Dependence', value=h_dp, delta=round(h_dp - (100 - winrate)), delta_color='inverse', label_visibility='collapsed')
                         st.divider()
                         st.markdown(f'<p class="plain-font">Cards Played: {round(100*house_scores[house]["Cards Played"]/total_cards_played)}%</p>', unsafe_allow_html=True)
