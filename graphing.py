@@ -153,6 +153,11 @@ set_dict = {
         'Color': '#838383',
         'Full Name': 'VAULT_MASTERS_2024',
     },
+    'VM25': {
+        'Image': 'https://decksofkeyforge.com/static/media/vm23-dark.d797a995bef735704fac3c8c41e1c134.svg',
+        'Color': '#838383',
+        'Full Name': 'VAULT_MASTERS_2025',
+    },
     'Disc': {
         'Image': 'https://decksofkeyforge.com/static/media/vm23-dark.d797a995bef735704fac3c8c41e1c134.svg',
         'Color': '#bedfe5',

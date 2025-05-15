@@ -21,6 +21,7 @@ set_conversion_dict = {
     'MORE_MUTATION': ['MMM'],
     'VAULT_MASTERS_2023': ['VM23'],
     'VAULT_MASTERS_2024': ['VM24'],
+    'VAULT_MASTERS_2025': ['VM25'],
     'DISCOVERY': ['Disc'],
 }
 
