@@ -88,7 +88,7 @@ else:
 
     c2.image(st.session_state.settings['icon_link'])
 
-versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0", "0.6.1", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.10.1"]
+versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0", "0.6.1", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.10.1", "0.10.2"]
 
 changes = [
     [
@@ -181,7 +181,8 @@ changes = [
     [
         'Added Tooltips',
         'Added Card Image Column (Cards Data)',
-    ]
+    ],
+    ['Added VM25'],
 ]
 
 with st.expander(fr"$\texttt{{\color{{gray}}\Large v{versions[-1]}}}$"):
