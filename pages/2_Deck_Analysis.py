@@ -527,6 +527,7 @@ else:
                 legacy_winrate = '--'
 
             metadata = database.get_meta_sets()
+            set_winrate_df.drop(set_winrate_df[set_winrate_df['Opponent Set'] == 'No Deck Data'].index, inplace=True)
             try:
                 weighted_avg_winrate = round(sum(set_winrate_df["Winrate"] * set_winrate_df["Opponent Set"].map(metadata['Data'])) / sum(set_winrate_df["Opponent Set"].map(metadata['Data'])))
             except:
@@ -979,29 +980,30 @@ else:
 
             turn_string = f"Turn {t+1}"
             with st.expander(fr"$\texttt{{\large {turn_string}}}$", expanded=st.session_state.expand_all):
-                cols = st.columns(10)
+                cards_per_row = 12
+                cols = st.columns(cards_per_row)
 
-                for i in range(min(10, len(df_sorted))):
+                for i in range(min(cards_per_row, len(df_sorted))):
                     card_row = df_sorted.iloc[i]
                     card_name = card_row['Card']
                     card_name_image = card_name.split('~~')[0]
 
                     frequency = round(card_row['Relative Frequency'] * 100)
                     if frequency == 100:
-                        frequency_string = f"  {frequency}%"
+                        frequency_string = f" {frequency}%"
                     elif frequency < 10:
-                        frequency_string = f"    {frequency}%"
-                    else:
                         frequency_string = f"   {frequency}%"
+                    else:
+                        frequency_string = f"  {frequency}%"
 
                     card_turn_data = cards_played_turn[card_name]
                     card_turn_winrate = round(100 * card_turn_data['wins'] / card_turn_data['played'])
                     if card_turn_winrate == 100:
-                        card_turn_winrate_string = f"  {card_turn_winrate}%"
+                        card_turn_winrate_string = f" {card_turn_winrate}%"
                     elif card_turn_winrate < 10:
-                        card_turn_winrate_string = f"    {card_turn_winrate}%"
-                    else:
                         card_turn_winrate_string = f"   {card_turn_winrate}%"
+                    else:
+                        card_turn_winrate_string = f"  {card_turn_winrate}%"
 
                     image_link = dok_api.get_card_image(card_name_image)
                     if image_link is None:

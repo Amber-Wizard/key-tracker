@@ -579,8 +579,20 @@ else:
             else:
                 p = second_player
             turn_num = round((t + 1.1) / 2)
-            turn_string = f"{t}: Turn {turn_num} - {p}"
+            this_turn_advantage = game_df.loc[t, 'Opponent Prediction'] - game_df.loc[t, 'Player Prediction']
+            if t > 0:
+                last_turn_advantage = game_df.loc[t-1, 'Opponent Prediction'] - game_df.loc[t-1, 'Player Prediction']
+            else:
+                last_turn_advantage = 0
 
+            turn_score = this_turn_advantage - last_turn_advantage
+            if p != player:
+                turn_score *= -1
+            if t > 0:
+                # turn_string = f"{t}: Turn {turn_num} - {p} ({'+' if turn_score > 0 else ''}{round(turn_score, 1)}) ({round(game_df.loc[t, 'Opponent Prediction'], 1)} - {round(game_df.loc[t, 'Player Prediction'], 1)}) - ({round(game_df.loc[t - 1, 'Opponent Prediction'], 1)} - {round(game_df.loc[t - 1, 'Player Prediction'], 1)})"
+                turn_string = f"{t}: Turn {turn_num} - {p} ({'+' if turn_score > 0 else ''}{round(turn_score, 1)})" #[{round(game_df.loc[t, 'Opponent Prediction'] - game_df.loc[t, 'Player Prediction'], 1)}]"
+            else:
+                turn_string = ''
             if player_messages is not None:
                 if p == player:
                     p_messages = player_messages

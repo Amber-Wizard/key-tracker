@@ -395,7 +395,8 @@ def get_dok_cache_deck_name(deck_name):
         if dok_data:
             dok_data['Data'] = dok_data['data']
             del dok_data['data']
-
+    if not dok_data:
+        print(f"No DoK Data Found: {deck_name}")
     return dok_data
 
 

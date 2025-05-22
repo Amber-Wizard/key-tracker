@@ -258,13 +258,17 @@ else:
                             st.session_state.sorted_houses = {}
 
                         if (game_format not in st.session_state.favorite_set or game_format not in st.session_state.sorted_houses) and game_format != 'sealed':
-                            deck_data = st.session_state.player_games[game_format].groupby('Deck').size().reset_index(name='Count')
-                            deck_data['Dok Data'] = deck_data['Deck'].apply(database.get_dok_cache_deck_name)
+                            deck_data = st.session_state.player_games[game_format].groupby('Deck Link').size().reset_index(name='Count')
+                            deck_data['Deck ID'] = deck_data['Deck Link'].str.split('/').str[-1]
+                            deck_data['Dok Data'] = deck_data['Deck ID'].apply(database.get_dok_cache_deck_id)
                             deck_data = deck_data[deck_data['Dok Data'].notna()]
 
                             deck_data['Set'] = deck_data['Dok Data'].apply(lambda dok_data: database.set_conversion_dict[dok_data['Data']['deck']['expansion']][0])
                             set_count_sum = deck_data.groupby('Set')['Count'].sum().reset_index(name='Count')
-                            st.session_state.favorite_set[game_format] = set_count_sum.loc[set_count_sum['Count'].idxmax(), 'Set']
+                            if not set_count_sum.empty and not set_count_sum['Count'].isna().all():
+                                st.session_state.favorite_set[game_format] = set_count_sum.loc[set_count_sum['Count'].idxmax(), 'Set']
+                            else:
+                                st.session_state.favorite_set[game_format] = None  # or a default value, e.g., 'Unknown'
 
                             deck_data['Houses'] = deck_data['Dok Data'].apply(lambda dok_data: [hd['house'] for hd in dok_data['Data']['deck']['housesAndCards']])
                             expanded_deck_games = deck_data.explode('Houses')
