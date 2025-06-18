@@ -184,6 +184,7 @@ changes = [
     ],
     ['Added VM25'],
     ['Added Turn Score', 'Various Bug Fixes'],
+    ['Added PV', 'Added CC']
 ]
 
 with st.expander(fr"$\texttt{{\color{{gray}}\Large v{versions[-1]}}}$"):
