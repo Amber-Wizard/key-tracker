@@ -292,12 +292,10 @@ else:
             cols[3].markdown(f'<b class="plain-font">{st.session_state.streak}</b>', unsafe_allow_html=True)
             cols[4].image('https://community.wacom.com/en-de/wp-content/uploads/sites/20/2023/10/Flame_GIF_1.gif')
 
-        st.write(' ')
-        st.write(' ')
 
         card_images = st.session_state.fake_images
 
-        _, c1, _, c2, _ = st.columns([0.2, 1, 0.3, 1, 0.2])
+        _, c1, _, c2, _ = st.columns([0.4, 1, 0.3, 1, 0.4])
 
         button_dict = st.session_state.button_dict
 

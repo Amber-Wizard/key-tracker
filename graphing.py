@@ -143,6 +143,16 @@ set_dict = {
         'Color': '#e94e76',
         'Full Name': 'MORE_MUTATION',
     },
+    'PV': {
+        'Image': 'https://decksofkeyforge.com/static/media/mm-dark.eb97671dd686e77d4befdb66d8532f5f.svg',
+        'Color': '#81236c',
+        'Full Name': 'PROPHETIC_VISIONS',
+    },
+    'CC': {
+        'Image': 'https://decksofkeyforge.com/static/media/mm-dark.eb97671dd686e77d4befdb66d8532f5f.svg',
+        'Color': '#f8e957',
+        'Full Name': 'CRUCIBLE_CLASH',
+    },
     'VM23': {
         'Image': 'https://decksofkeyforge.com/static/media/vm23-dark.d797a995bef735704fac3c8c41e1c134.svg',
         'Color': '#838383',

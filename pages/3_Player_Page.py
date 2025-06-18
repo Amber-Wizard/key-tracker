@@ -413,6 +413,7 @@ else:
 
 
     if 'quest_notifications' not in st.session_state:
+        st.toast('Calculating Achievements')
         with st.spinner('Calculating achievements...'):
             achievements, quest_notifications, achievement_data_list = calculate_achievements(st.session_state.settings['achievements'])
             st.session_state.quest_notifications = quest_notifications

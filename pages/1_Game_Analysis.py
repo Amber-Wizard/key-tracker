@@ -579,18 +579,29 @@ else:
             else:
                 p = second_player
             turn_num = round((t + 1.1) / 2)
-            this_turn_advantage = game_df.loc[t, 'Opponent Prediction'] - game_df.loc[t, 'Player Prediction']
+            turn_opponent_prediction = game_df.loc[t, 'Opponent Prediction']
+            turn_player_prediction = game_df.loc[t, 'Player Prediction']
+            this_turn_advantage = turn_opponent_prediction - turn_player_prediction
             if t > 0:
-                last_turn_advantage = game_df.loc[t-1, 'Opponent Prediction'] - game_df.loc[t-1, 'Player Prediction']
+                last_turn_opponent_prediction = game_df.loc[t-1, 'Opponent Prediction']
+                last_turn_player_prediction = game_df.loc[t-1, 'Player Prediction']
+                last_turn_advantage = last_turn_opponent_prediction - last_turn_player_prediction
             else:
+                last_turn_opponent_prediction = 25
+                last_turn_player_prediction = 25
                 last_turn_advantage = 0
+
+            include_asterisk = False
+            max_pred = max([turn_opponent_prediction, turn_player_prediction, last_turn_opponent_prediction, last_turn_player_prediction])
+            if max_pred > 24:
+                include_asterisk = True
 
             turn_score = this_turn_advantage - last_turn_advantage
             if p != player:
                 turn_score *= -1
             if t > 0:
                 # turn_string = f"{t}: Turn {turn_num} - {p} ({'+' if turn_score > 0 else ''}{round(turn_score, 1)}) ({round(game_df.loc[t, 'Opponent Prediction'], 1)} - {round(game_df.loc[t, 'Player Prediction'], 1)}) - ({round(game_df.loc[t - 1, 'Opponent Prediction'], 1)} - {round(game_df.loc[t - 1, 'Player Prediction'], 1)})"
-                turn_string = f"{t}: Turn {turn_num} - {p} ({'+' if turn_score > 0 else ''}{round(turn_score, 1)})" #[{round(game_df.loc[t, 'Opponent Prediction'] - game_df.loc[t, 'Player Prediction'], 1)}]"
+                turn_string = f"{t}: Turn {turn_num} - {p} ({'+' if turn_score > 0 else ''}{round(turn_score, 1)}){'*' if include_asterisk else ''}" #[{round(game_df.loc[t, 'Opponent Prediction'] - game_df.loc[t, 'Player Prediction'], 1)}]"
             else:
                 turn_string = ''
             if player_messages is not None:

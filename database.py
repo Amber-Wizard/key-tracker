@@ -19,6 +19,8 @@ set_conversion_dict = {
     'AEMBER_SKIES': ['AES'],
     'TOKENS_OF_CHANGE': ['ToC'],
     'MORE_MUTATION': ['MMM'],
+    'PROPHETIC_VISIONS': ['PV'],
+    'CRUCIBLE_CLASH': ['CC'],
     'VAULT_MASTERS_2023': ['VM23'],
     'VAULT_MASTERS_2024': ['VM24'],
     'VAULT_MASTERS_2025': ['VM25'],

@@ -109,6 +109,10 @@ st.markdown("""
     font-size: 28px !important;
     color: #838383 !important;
 }
+.VM25-font {
+    font-size: 28px !important;
+    color: #838383 !important;
+}
 .amber-font {
     font-size: 22px !important;
     color: #f8df65 !important;
