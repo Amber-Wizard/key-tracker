@@ -6,7 +6,7 @@ import streamlit_authenticator.utilities.hasher as hasher
 import database
 
 
-def new_user(username, password, email, tco_name):
+def new_user(username, password, email, tco_name, discord_name=None):
     if len(username) < 3:
         return "Error", "Username must be at least 3 characters"
     if len(password) < 5:
@@ -27,7 +27,7 @@ def new_user(username, password, email, tco_name):
         if user_df['aliases'].apply(lambda lst: isinstance(lst, list) and tco_name in lst).any():
             return "Error", "TCO name already exists"
 
-    database.add_user(username, password, email, tco_name)
+    database.add_user(username, password, email, tco_name, discord_name)
 
     return "Success", "Account successfully registered"
 

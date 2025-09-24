@@ -3,29 +3,30 @@ import plotly.express as px
 import pandas as pd
 import random
 import ast
-from collections import Counter
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from PIL import Image, ImageFilter, ImageEnhance
+import collections
 import numpy as np
 import math
 import io
 
 import dok_api
+import database
 
 house_colors = {
     "brobnar": (242, 113, 34),
     "dis": (223, 32, 120),
-    "ekwidon": (115, 201, 189),
     "logos": (95, 199, 230),
     "mars": (104, 190, 68),
     "sanctum": (5, 116, 179),
-    "untamed": (9, 123, 68),
-    "unfathomable": (58, 69, 138),
     "shadows": (249, 196, 40),
+    "untamed": (9, 123, 68),
     "staralliance": (250, 200, 80),
     "saurian": (232, 194, 60),
+    "unfathomable": (58, 69, 138),
+    "ekwidon": (115, 201, 189),
     "geistoid": (115, 75, 136),
     "skyborn": (241, 235, 210),
     "redemption": (212, 39, 52),
@@ -203,6 +204,7 @@ def get_turn_played(player_data, card_name, analysis_type='replay'):
 
 
 def calculate_ttw(player_tav, player_data, opponent_amber_defense):
+    # TODO: add individual house lines
     ttw = []
     amber_deltas = []
     reap_rates = []
@@ -215,7 +217,7 @@ def calculate_ttw(player_tav, player_data, opponent_amber_defense):
         amber_remaining = keys_remaining * key_cost - amber
         avg_creatures = sum(player_data['creatures'][:i]) / (i+1)
         if avg_creatures > 0:
-            reap_rate = player_data['amber_reaped'][i] / (((i+1) * avg_creatures) / 2)
+            reap_rate = (1 + player_data['amber_reaped'][i]) / (3 + (((i+1) * avg_creatures) / 2))
         else:
             reap_rate = None
         amber_delta = (player_data['amber_icons'][i] + player_data['amber_effect'][i] + player_data['steal'][i]) / ((i+1) / 2)
@@ -296,20 +298,13 @@ def calculate_ex_amber(player_data, opponent_data, first_player, opponent_name, 
 def analyze_deck(username, log, games, game_format, high_contrast=False):
     player_data = log[username]
     opponent_data = log['opponent']
-
-    deck_analysis_data = create_deck_analysis_graphs(player_data, username, opponent_data, 'opponent', games, game_format, high_contrast)
-
-    return deck_analysis_data
-
-
-def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_name, games, game_format, high_contrast=False):
     player_tav, opponent_tav, p_amber_gained, op_amber_gained, p_amber_defense, op_amber_defense, p_forge_rate, op_forge_rate = calculate_tav(player_data, opponent_data)
     player_ttw, player_delta, player_reap_rate = calculate_ttw(player_tav, player_data, op_amber_defense[-1])
     opponent_ttw, opponent_delta, opponent_reap_rate = calculate_ttw(opponent_tav, opponent_data, p_amber_defense[-1])
     p_values = [player_data['total_amber_effect'][-1], player_data['total_steal'][-1], player_data['total_amber_reaped'][-1], player_data['total_amber_icons'][-1]]
     op_values = [opponent_data['total_amber_effect'][-1], opponent_data['total_steal'][-1], opponent_data['total_amber_reaped'][-1], opponent_data['total_amber_icons'][-1]]
-    player_amber_sources = amber_sources(p_values, max(p_values + op_values), username, 'replay', contrast=high_contrast)
-    opponent_amber_sources = amber_sources(op_values, max(p_values + op_values), opponent_name, 'replay', contrast=high_contrast)
+    player_amber_sources = amber_sources(p_values, max(sum(p_values), sum(op_values)))
+    opponent_amber_sources = amber_sources(op_values, max(sum(p_values), sum(op_values)))
     if games >= 10:
         min_threshold = round(games/12)
     else:
@@ -430,7 +425,7 @@ def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_n
     # game_dataframe['Trade Advantage'] = min(25, max(1, (18 - game_dataframe['Opponent Amber']) / (1-game_dataframe['Player Amber Defense']/100)*(max(0, game_dataframe['Opponent Creatures'] - 1) * game_dataframe['Opponent Reap Rate'] + game_dataframe['Opponent Delta']))) - min(25, max(1, (18 - game_dataframe['Player Amber']) / (1-game_dataframe['Opponent Amber Defense']/100)*(max(0, game_dataframe['Player Creatures'] - 1) * game_dataframe['Player Reap Rate'] + game_dataframe['Player Delta'])))
     # game_dataframe['Reap/Kill Advantage'] = game_dataframe['Reap Advantage'] - game_dataframe['Kill Advantage']
     # game_dataframe['Reap/Trade Advantage'] = game_dataframe['Reap Advantage'] - game_dataframe['Trade Advantage']
-    idx = next((i for i, v in enumerate(normalized_turns) if v <= 10), None)
+    idx = next((i for i, v in enumerate(normalized_turns) if v <= 15), None)
     game_dataframe = game_dataframe[:idx]
 
     advantage_graphs = []
@@ -446,7 +441,20 @@ def create_deck_analysis_graphs(player_data, username, opponent_data, opponent_n
 
         advantage_graphs.append(advantage_chart(game_dataframe[f'{stat} Advantage']))
 
-    return game_dataframe, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, advantage_graphs, player_card_data, opponent_card_data, normalized_turns
+    return {
+        "game_dataframe": game_dataframe,
+        "player_amber_sources": player_amber_sources,
+        "opponent_amber_sources": opponent_amber_sources,
+        "player_house_calls": player_house_calls,
+        "opponent_house_calls": opponent_house_calls,
+        "advantage_charts": advantage_graphs,
+        "player_card_data": player_card_data,
+        "opponent_card_data": opponent_card_data,
+        "turns": normalized_turns,
+        "player_data": player_data,
+        "opponent_data": opponent_data,
+    }
+    # return game_dataframe, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, advantage_graphs, player_card_data, opponent_card_data, normalized_turns
 
 
 def normalize_turns(turns):
@@ -463,6 +471,7 @@ def calculate_tide(player_data):
 
 
 def calculate_deck_survival_rate(player_data):
+    # TODO: add individual house lines
     survival_rate = []
     for i in range(len(player_data['survives'])):
         s = sum(player_data['survives'][:i+1])
@@ -499,7 +508,7 @@ def calculate_survival_rate(player_data, player_second=True):
 
             deaths_turn = max(creatures_turn - next_creatures_turn, 0)
 
-            board_frequency_dict = dict(Counter(board_turn))
+            board_frequency_dict = dict(collections.Counter(board_turn))
 
             for c, num in board_frequency_dict.items():
                 card_survives = min(next_board_turn.count(c), num)
@@ -529,7 +538,7 @@ def calculate_survival_rate(player_data, player_second=True):
             total_survives = sum(survives)
             total_deaths = sum(deaths)
             if total_survives + total_deaths > 0:
-                survival_rate = max(0, min(100, round(100 * total_survives / (total_survives + total_deaths))))
+                survival_rate = max(0, min(100, round(100 * (3 + total_survives) / (4 + total_survives + total_deaths))))
             else:
                 survival_rate = None
 
@@ -598,8 +607,12 @@ def analyze_game(username, game_data, high_contrast=False):
     player_data = log[username]
     first_player = game_data['Starting Player'][0]
 
-    opponent_name = [n for n in log.keys() if n != username and n != 'player_hand'][0]
-    opponent_data = log[opponent_name]
+    opponent_name = game_data['Opponent'][0]
+    opponent_data = log.get(opponent_name, None)
+    if not opponent_data:
+        opponent_name = [n for n in log.keys() if n != username and n != 'player_hand'][0]
+        opponent_data = log.get(opponent_name, None)
+
     game_analysis_data = create_game_analysis_graphs(player_data, username, opponent_data, opponent_name, first_player, high_contrast)
 
     return game_analysis_data
@@ -611,8 +624,8 @@ def create_game_analysis_graphs(player_data, username, opponent_data, opponent_n
     opponent_ttw, opponent_delta, opponent_reap_rate = calculate_ttw(opponent_tav, opponent_data, p_amber_defense[-1])
     p_values = [player_data['amber_effect'][-1], player_data['steal'][-1], player_data['amber_reaped'][-1], player_data['amber_icons'][-1]]
     op_values = [opponent_data['amber_effect'][-1], opponent_data['steal'][-1], opponent_data['amber_reaped'][-1], opponent_data['amber_icons'][-1]]
-    player_amber_sources = amber_sources(p_values, max(p_values + op_values), username, 'replay', high_contrast)
-    opponent_amber_sources = amber_sources(op_values, max(p_values + op_values), opponent_name, 'replay', high_contrast)
+    player_amber_sources = amber_sources(p_values, max(sum(p_values), sum(op_values)))
+    opponent_amber_sources = amber_sources(op_values, max(sum(p_values), sum(op_values)))
     player_house_calls = make_house_image(player_data['house_calls'])
     opponent_house_calls = make_house_image(opponent_data['house_calls'], player_graph=False)
 
@@ -658,8 +671,8 @@ def calculate_tav(player_data, opponent_data):
     opponent_tav = [k * 6 + a for k, a in zip(opponent_data['keys'], opponent_data['amber'])]
     p_amber_gained = [player_data['amber_icons'][i] + player_data['amber_reaped'][i] + player_data['amber_effect'][i] + player_data['steal'][i] for i in range(len(player_data['amber_icons']))]
     op_amber_gained = [opponent_data['amber_icons'][i] + opponent_data['amber_reaped'][i] + opponent_data['amber_effect'][i] + opponent_data['steal'][i] for i in range(len(opponent_data['amber_icons']))]
-    p_amber_defense = [round(100*(1 - opponent_tav[i] / op_amber_gained[i])) if op_amber_gained[i] > 0 else 0 for i in range(len(opponent_tav))]
-    op_amber_defense = [round(100*(1 - player_tav[i] / p_amber_gained[i])) if p_amber_gained[i] > 0 else 0 for i in range(len(player_tav))]
+    p_amber_defense = [round(100*(1 - (1 + opponent_tav[i]) / (1 + op_amber_gained[i]))) if op_amber_gained[i] > 0 else 0 for i in range(len(opponent_tav))]
+    op_amber_defense = [round(100*(1 - (1 + player_tav[i]) / (1 + p_amber_gained[i]))) if p_amber_gained[i] > 0 else 0 for i in range(len(player_tav))]
     if 'checks' in player_data:
         if 'checked_keys' in player_data:
             # player_data['checked_keys'].pop(0)
@@ -727,38 +740,40 @@ def advantage_chart(y):
         name='Advantage'
     ))
 
-    # Add trace for positive fill area
+    # Positive area (above 0, blue)
     fig.add_trace(go.Scatter(
-        x=x + x[::-1],  # x values for positive fill
-        y=list(np.maximum(y, 0)) + [0] * len(x),  # Match positive area exactly
-        fill='toself',  # Close the fill area
-        fillcolor='rgba(96, 180, 255, 0.4)',  # Blue with 40% opacity
-        line=dict(color='rgba(0,0,0,0)'),  # No border line
-        name='Positive Area'
+        x=x,
+        y=np.maximum(y, 0),       # positive part only
+        fill='tozeroy',           # fill to y=0
+        fillcolor='rgba(96, 180, 255, 0.4)',
+        line=dict(color='rgba(0,0,0,0)'),
+        showlegend=False
     ))
 
-    # Add trace for negative fill area
+    # Negative area (below 0, red)
     fig.add_trace(go.Scatter(
-        x=x + x[::-1],  # x values for negative fill
-        y=list(np.minimum(y, 0)) + [0] * len(x),  # Match negative area exactly
-        fill='toself',  # Close the fill area
-        fillcolor='rgba(255, 75, 75, 0.4)',  # Red with 40% opacity
-        line=dict(color='rgba(0,0,0,0)'),  # No border line
-        name='Negative Area'
+        x=x,
+        y=np.minimum(y, 0),       # negative part only
+        fill='tozeroy',           # fill to y=0
+        fillcolor='rgba(255, 75, 75, 0.4)',
+        line=dict(color='rgba(0,0,0,0)'),
+        showlegend=False
     ))
 
     fig.update_layout(
         title={'text': ''},
         width=700,
         height=360,
-        showlegend=False,  # Hide legend
+        showlegend=False,
     )
     fig.update_yaxes(range=[-max_y, max_y])
 
     return fig
 
 
+
 def creatures(player_creatures, opponent_creatures, opponent_name, save):
+    # TODO: add individual house lines
     x = list(range(max(len(player_creatures), len(opponent_creatures))))
     layout = go.Layout(
         margin=dict(pad=10),
@@ -777,6 +792,7 @@ def creatures(player_creatures, opponent_creatures, opponent_name, save):
 
 
 def cards_played(player_cards, opponent_cards, opponent_name, save):
+    # TODO: add individual house lines
     x = list(range(max(len(player_cards), len(opponent_cards))))
     layout = go.Layout(
         margin=dict(pad=10),
@@ -819,19 +835,18 @@ def amber_sources_pie(values, name, save, contrast=False):
     return fig
 
 
-def amber_sources(values, max_y, name, save, contrast=False):
+def amber_sources(values, max_y):
     layout = go.Layout(
         paper_bgcolor='rgb(14, 17, 23)',  # set chart background color
         title={'font': {'color': 'rgb(225,235,235)'}},  # set title font color
         legend={'font': {'color': 'rgb(225,235,235)'}}  # set legend font color
     )
 
-    if contrast:
-        colors = None
-    else:
-        colors = [f'rgb({255-30*(3-x)/4},{235-50*(3-x)/4},{135-135*(3-x)/4})' for x in [1, 0, 2, 3]]
+    colors = [f'rgb({255-30*(3-x)/4},{235-50*(3-x)/4},{135-135*(3-x)/4})' for x in [1, 0, 2, 3]]
 
-    labels = ['Effects', 'Steal', 'Reaps', 'Icons']
+    labels = ['Effects', 'Steal', 'Reaps', 'Icons', 'Total']
+
+    values = values + [sum(values)]
 
     fig = go.Figure(data=go.Bar(x=labels, y=values, marker=dict(color=colors[3], line=dict(color=colors[1], width=3), cornerradius="20%"), opacity=0.8), layout=layout)  # make chart object
     # fig.update_traces(textposition='inside', textinfo='value+percent+label')
@@ -853,7 +868,14 @@ def activity_graph(data):
     return fig
 
 
-def set_meta_graph(data):
+def set_meta_graph(data, winrate=False):
+    set_order = database.set_conversion_dict.values()
+    adjusted_data = {}
+    for exp_l in set_order:
+        exp = exp_l[0]
+        if exp in data:
+            adjusted_data[exp] = data[exp]
+    data = adjusted_data
     layout = go.Layout(
         paper_bgcolor='rgb(14, 17, 23)',  # set chart background color
         title={'font': {'color': 'rgb(225,235,235)'}},  # set title font color
@@ -861,12 +883,34 @@ def set_meta_graph(data):
     )
     x = list(data.keys())
     color_sequence = [hex_to_rgb(set_dict[s]['Color'], 0.65) for s in x]
-    fig = go.Figure(data=go.Bar(x=x, y=list(data.values()), marker_color=color_sequence, marker=dict(line=dict(color='rgb(255, 255, 255)', width=3), cornerradius="20%")), layout=layout)  # make chart object
-    fig.update_layout(title={'text': f''}, width=420, height=480, showlegend=False)  # set chart title
+    fig = go.Figure(
+        data=go.Bar(
+            x=x,
+            y=list(data.values()),
+            marker_color=color_sequence,
+            marker=dict(line=dict(color='rgb(255, 255, 255)', width=3), cornerradius="20%")
+        ),
+        layout=layout
+    )
+    fig.update_layout(title={'text': f''}, width=420, height=480, showlegend=False)
+
+    if winrate:
+        fig.add_hline(y=50, line=dict(color="yellow", dash="dash"), layer="below")
+        max_diff = max(abs(min(data.values()) - 50), abs(max(data.values()) - 50))
+        fig.update_yaxes(range=[max(0, round(50 - max_diff * 1.2)), min(100, round(50 + max_diff * 1.2))])
+
     return fig
 
 
-def house_meta_graph(data):
+def house_meta_graph(data, winrate=False):
+    # TODO: add implied play rate line
+    house_order = house_colors.keys()
+    adjusted_data = {}
+    for house in house_order:
+        house = house.title() if house != 'staralliance' else 'StarAlliance'
+        if house in data:
+            adjusted_data[house] = data[house]
+    data = adjusted_data
     layout = go.Layout(
         paper_bgcolor='rgb(14, 17, 23)',  # set chart background color
         title={'font': {'color': 'rgb(225,235,235)'}},  # set title font color
@@ -876,45 +920,43 @@ def house_meta_graph(data):
     color_sequence = [f'rgba({house_colors[h.lower()][0]}, {house_colors[h.lower()][1]}, {house_colors[h.lower()][2]}, 0.65)' for h in x]
     fig = go.Figure(data=go.Bar(x=x, y=list(data.values()), marker_color=color_sequence, marker=dict(line=dict(color='rgb(255, 255, 255)', width=3), cornerradius="20%")), layout=layout)  # make chart object
     fig.update_layout(title={'text': f''}, width=420, height=480, showlegend=False)  # set chart title
+
+    if winrate:
+        fig.add_hline(y=50, line=dict(color="yellow", dash="dash"), layer="below")
+        max_diff = max(abs(min(data.values()) - 50), abs(max(data.values()) - 50))
+        fig.update_yaxes(range=[max(0, round(50 - max_diff * 1.2)), min(100, round(50 + max_diff * 1.2))])
+
     return fig
 
 
-def house_calls(data, name, games, save):
-    layout = go.Layout(
-        paper_bgcolor='rgb(14, 17, 23)',  # set chart background color
-        title={'font': {'color': 'rgb(225,235,235)'}},  # set title font color
-        legend={'font': {'color': 'rgb(225,235,235)'}}  # set legend font color
-    )
-    counts = {}
-    for call in data['house_calls']:
-        if call in counts:
-            counts[call] += 1
-        else:
-            counts[call] = 1
-    for h in counts:
-        counts[h] = round(counts[h] / games, 1)
-    colors = [f'rgb({house_colors[h.strip()]})' for h in list(counts.keys())]
-    labels = [h.strip().capitalize() for h in list(counts.keys())]
-    values = list(counts.values())
-
-    fig = go.Figure(data=go.Pie(labels=labels, values=values, marker=dict(colors=colors, line=dict(color='rgb(15,25,25)', width=5))), layout=layout)  # make chart object
-    fig.update_traces(textposition='inside', textinfo='value+percent+label')
-    fig.update_layout(title={'text': f''}, width=420, height=480, showlegend=False)  # set chart title
-    # if name == USERNAME:
-    #     save_name = "hero"
-    # else:
-    #     save_name = "villain"
-    # fig.write_image(f"images/{save_name}_house_calls_{save}.png", scale=10)  # save to .png file
-    return fig
+# def house_calls(data, name, games, save):
+#     layout = go.Layout(
+#         paper_bgcolor='rgb(14, 17, 23)',  # set chart background color
+#         title={'font': {'color': 'rgb(225,235,235)'}},  # set title font color
+#         legend={'font': {'color': 'rgb(225,235,235)'}}  # set legend font color
+#     )
+#
+#     counts = collections.defaultdict(int)
+#     for call in data['house_calls']:
+#         counts[call] += 1
+#
+#     for h in counts:
+#         counts[h] = round(counts[h] / games, 1)
+#
+#     colors = [f'rgb({house_colors[h.strip()]})' for h in list(counts.keys())]
+#     labels = [h.strip().capitalize() for h in list(counts.keys())]
+#     values = list(counts.values())
+#
+#     fig = go.Figure(data=go.Pie(labels=labels, values=values, marker=dict(colors=colors, line=dict(color='rgb(15,25,25)', width=5))), layout=layout)  # make chart object
+#     fig.update_traces(textposition='inside', textinfo='value+percent+label')
+#     fig.update_layout(title={'text': f''}, width=420, height=480, showlegend=False)  # set chart title
+#     return fig
 
 
 def get_card_information(player_data, individual_survival_rates=None, analysis_type='Game'):
     # link_base = "https://keyforge-card-images.s3-us-west-2.amazonaws.com/card-imgs/"
     # remove_chars = "æ””“!,.-…’'éĕŏăŭĭ\""
-    if analysis_type == 'Game':
-        card_played_type = 'individual_cards_played'
-    else:
-        card_played_type = 'individual_cards_played_total'
+    card_played_type = 'individual_cards_played' if analysis_type == 'Game' else 'individual_cards_played_total'
     df = pd.DataFrame(columns=["Card", "Turn", "Played", "Discarded", "Discarded %", "Amber", "Amber %", "Reaps", "Icons", "Steal", "Effects", "Survival %"])
     if analysis_type == 'Game':
         amber_gained = player_data['amber_icons'][-1] + player_data['amber_effect'][-1] + player_data['amber_reaped'][-1] + player_data['steal'][-1]
@@ -957,6 +999,7 @@ def get_card_information(player_data, individual_survival_rates=None, analysis_t
 
 
 def make_house_image(calls, player_graph=True):
+    # TODO: change for deck analysis
     calls = [c.replace(' ', '') for c in calls]
 
     if len(calls) < 15:
@@ -1040,16 +1083,22 @@ def make_house_image(calls, player_graph=True):
 
 
 def make_house_image_deck(calls, min_threshold=0, player_graph=True):
+    print(f"Making house image (PG: {player_graph})")
     house_order = [h.lower() for h in house_dict.keys()]
     houses = list({key for call in calls for key in call.keys()})
-
     sorted_strings = sorted(houses, key=lambda z: house_order.index(z))
-
     total_calls = sum([sum(c.values()) for c in calls])
 
     total_house_values = {}
     for h in sorted_strings:
         total_house_values[h] = sum([c[h] for c in calls if h in c])
+
+    if len(total_house_values) > 3:
+        for key in sorted(total_house_values, key=total_house_values.get, reverse=True)[3:]:
+            del total_house_values[key]
+
+    houses = list(total_house_values.keys())
+    sorted_strings = sorted(houses, key=lambda z: house_order.index(z))
 
     calls = [c for c in calls if sum(c.values()) >= min_threshold]
 
@@ -1077,6 +1126,7 @@ def make_house_image_deck(calls, min_threshold=0, player_graph=True):
         minus_factor = 2
     else:
         minus_factor = 0
+
     resulting_dict = {s: minus_factor+idx for idx, s in enumerate(sorted_strings)}
 
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -1088,7 +1138,6 @@ def make_house_image_deck(calls, min_threshold=0, player_graph=True):
     x_positions = [(i+1)/num_calls for i in range(num_calls)]  # Regular intervals
 
     y_values = [1 - (i + 1) * adjustment_interval for i in range(3)]
-
     for y in y_values:
         ax.hlines(y, 0.02, 1.05, color='lightgray', linewidth=3)
 
@@ -1108,12 +1157,11 @@ def make_house_image_deck(calls, min_threshold=0, player_graph=True):
     ax.set_xlim(-0.1, 1.1)
     ax.set_ylim(0, 1)
 
+    print(calls)
     for i, x in enumerate(x_positions):
-        if player_graph:
-            top_houses = calls[i].keys()
-        else:
-            top_houses = sorted(calls[i].items(), key=lambda item: item[1], reverse=True)[:3]
-            top_houses = [t[0] for t in top_houses]
+        filtered_items = [(k, v) for k, v in calls[i].items() if k in resulting_dict]
+        top_houses = sorted(filtered_items, key=lambda item: item[1], reverse=True)[:3]
+        top_houses = [t[0] for t in top_houses]
         for j, house in enumerate(top_houses):
             img = f'./house_images/105px-{house.title()}.png'
             if player_graph:

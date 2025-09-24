@@ -1,3 +1,5 @@
+import collections
+
 import streamlit as st
 import os
 import pandas as pd
@@ -6,21 +8,11 @@ import re
 
 import analysis
 import database
+import dok_api
 import users
-
-
-ALLIANCE_SCAN_THRESHOLD = 0.90
-
-default_settings = {
-    'icon_link': 'https://i.imgur.com/ib66iB9.png',
-    'game_data_use': True,
-    'show_decks': False,
-    'show_player': False,
-    'show_player_page': False,
-    'board_layout': 'tco',
-    'high_contrast': False,
-    'achievements': [],
-}
+import formatting
+import states
+import graphing
 
 
 try:
@@ -46,28 +38,27 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+# Load User Data
+@st.cache_data
 def get_user_info():
     st.session_state.user_info = database.get_user(st.session_state.name)
+    st.session_state = states.update_settings(st.session_state, user_settings=st.session_state.user_info)
     if 'aliases' not in st.session_state.user_info:
         st.session_state.user_info['aliases'] = []
-    for setting in ['board_layout', 'game_data_use', 'high_contrast', 'show_decks', 'show_player', 'icon_link', 'achievements']:
-        if setting in st.session_state.user_info:
-            st.session_state.settings[setting] = st.session_state.user_info[setting]
-    if 'aliases' in st.session_state.user_info:
-        st.session_state.aliases = st.session_state.user_info['aliases']
-    else:
-        st.session_state.aliases = []
 
 
+# Initialize States
 if 'login_type' not in st.session_state:
     st.session_state.login_type = 'normal'
 if 'auto_login_check' not in st.session_state:
     st.session_state.auto_login_check = False
 
 if 'settings' not in st.session_state:
-    st.session_state.settings = default_settings
-if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
+    st.session_state = states.update_settings(st.session_state)
+
+if 'authentication_status' not in st.session_state or not st.session_state.authentication_status:
     display_name = "Zenzi"
+    # Try to automatically log the user in
     if not st.session_state.auto_login_check:
         st.session_state.login_type = 'special'
         st.switch_page('pages/9_Login.py')
@@ -77,7 +68,7 @@ else:
 c1, c2 = st.columns([8, 1], vertical_alignment='bottom')
 c1.title(f":blue[{display_name}'s] KeyTracker")
 
-if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
+if 'authentication_status' not in st.session_state or not st.session_state.authentication_status:
     login = c2.button("Login")
     if login:
         st.switch_page("pages/9_Login.py")
@@ -88,7 +79,8 @@ else:
 
     c2.image(st.session_state.settings['icon_link'])
 
-versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0", "0.6.1", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.10.1", "0.10.2", "0.10.3", "0.10.4"]
+versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0", "0.6.1", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.10.1", "0.10.2", "0.10.3", "0.10.4", "0.10.5"]
+
 
 changes = [
     [
@@ -184,51 +176,49 @@ changes = [
     ],
     ['Added VM25'],
     ['Added Turn Score', 'Various Bug Fixes'],
-    ['Added PV', 'Added CC']
+    ['Added PV', 'Added CC'],
+    [
+        'Reworked Meta Snapshot',
+        'Color Coding! (Can be disabled in Player Page > Settings > Display)',
+        'Added Deck Stats (Deck Analysis)',
+        'Added Winrate to Game Length Graph (Deck Analysis)',
+        'Added Amber Sources to House Info (Deck Analysis)',
+        'Added Amber % Bars in Card Data (Deck/Game Analysis)',
+        'Added Deck Game Select (Deck Analysis)',
+        'Added Download/Info Button (Home)',
+        'Updated House & Set Winrates (Deck Analysis)',
+        'Updated Register User Widget (Login)',
+        'Removed Favorites (Player Page)',
+        'Fixed Calculation Issue (Deck Analysis)',
+        'Various Restructuring & Improvements',
+    ]
 ]
-
 with st.expander(fr"$\texttt{{\color{{gray}}\Large v{versions[-1]}}}$"):
     st.divider()
     for c in changes[-1]:
-        if c[0] == ' ':
-            st.write(c)
-        else:
-            st.write(f"-{c}")
+        st.write(c if c[0] == ' ' else f"-{c}")
     for i in range(len(versions)-1):
         st.divider()
         v = versions[-2-i]
         st.write(fr"$\texttt{{\color{{gray}}\Large v{v}}}$")
         v_changes = changes[-2-i]
         for c in v_changes:
-            if c[0] == ' ':
-                st.write(c)
-            else:
-                st.write(f"-{c}")
+            st.write(c if c[0] == ' ' else f"-{c}")
 
-if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
+if 'authentication_status' not in st.session_state or not st.session_state.authentication_status:
     pass
 else:
     if 'game_log' not in st.session_state:
         with st.spinner('Getting games...'):
-            if st.session_state.name == 'master':
-                st.session_state.game_log = database.get_all_games(trim_lists=False)
-            else:
-                if 'aliases' not in st.session_state:
+            if 'user_info' not in st.session_state:
+                with st.spinner("Getting user info..."):
                     get_user_info()
-                st.session_state.game_log = database.get_user_games(st.session_state.name, st.session_state.aliases, trim_lists=False)
 
-    # if 'decks_elo' not in st.session_state:
-    #     with st.spinner('Getting ELO...'):
-    #         st.session_state.decks_elo = database.get_decks_elo(st.session_state.name)
+            st.session_state.game_log = database.get_user_games(st.session_state.name, st.session_state.user_info.get('aliases', []), trim_lists=True)
 
     if 'deck_log' not in st.session_state:
         with st.spinner('Getting decks...'):
-            deck_log = database.get_user_decks(st.session_state.name, st.session_state.aliases, st.session_state.game_log)
-            # deck_log['ELO'] = 1500
-            # for idx, row in deck_log.iterrows():
-            #     deck_dict = [d for d in st.session_state.decks_elo if d['deck'] == row['Deck'][0]]
-            #     if len(deck_dict) > 0:
-            #         deck_log.loc[idx, 'ELO'] = deck_dict[0]['score']
+            deck_log = database.get_user_decks(st.session_state.name, st.session_state.user_info.get('aliases', []), st.session_state.game_log)
 
             st.session_state.deck_log = deck_log
 
@@ -236,8 +226,6 @@ if 'featured_game_log' not in st.session_state:
     with st.spinner('Getting featured games...'):
         st.session_state.featured_game_log = database.get_featured_game_log()
         display_log = st.session_state.featured_game_log
-        # display_log['Set'] = display_log['Set'].apply(lambda x: [x])
-        # display_log['Op. Set'] = display_log['Op. Set'].apply(lambda x: [x])
 
 if 'game_analysis_id' not in st.session_state:
     st.session_state.game_analysis_id = None
@@ -249,10 +237,7 @@ cols = st.columns([1, 1, 1, 1, 1, 1])
 if cols[1].button('Leaderboard'):
     st.switch_page("pages/4_Leaderboard.py")
 
-if 'name' in st.session_state and st.session_state.name:
-    pp_disabled = False
-else:
-    pp_disabled = True
+pp_disabled = not bool(st.session_state.get('name'))
 
 if cols[0].button('Player Page', disabled=pp_disabled):
     st.switch_page("pages/3_Player_Page.py")
@@ -263,148 +248,94 @@ if cols[2].button('Meta Snapshot'):
 if cols[3].button('Card Trainer'):
     st.switch_page("pages/6_Card_Trainer.py")
 
+cols[-1].link_button('Download / Info', url="https://drive.google.com/drive/folders/1YvmBXaMBgnGWVQMKbYAUwZRMeS-ulxv2?usp=sharing")
+
 st.divider()
 
 st.subheader("Featured Games")
 with st.expander("Select Game"):
     if len(st.session_state.featured_game_log) > 0:
-
         featured_game_choice = st.dataframe(st.session_state.featured_game_log[['Date', 'Player', 'Opponent', 'Deck', 'Opponent Deck', 'Likes']], on_select='rerun', selection_mode='single-row', hide_index=True)
     else:
         featured_game_choice = None
         st.write("No featured games.")
 
-analyze_games = st.button("Analyze", key='analyze_featured_games')
-if analyze_games:
-    if featured_game_choice:
-        selected_featured_game = featured_game_choice['selection']['rows']
-        if len(selected_featured_game) == 0:
-            st.error("No game selected")
-        else:
-            st.session_state.game_id = st.session_state.featured_game_log.iloc[selected_featured_game[0]]['ID'][0]
-            st.switch_page("pages/1_Game_Analysis.py")
+if st.button("Analyze", key='analyze_featured_games') and featured_game_choice:
+    selected_featured_game = featured_game_choice['selection']['rows']
+    if len(selected_featured_game) == 0:
+        st.error("No game selected")
+    else:
+        st.session_state.game_analysis_id = st.session_state.featured_game_log.iloc[selected_featured_game[0]]['ID']
+        st.switch_page("pages/1_Game_Analysis.py")
 
-if 'authentication_status' not in st.session_state or st.session_state.authentication_status is False or st.session_state.authentication_status is None:
+if 'authentication_status' not in st.session_state or not st.session_state.authentication_status:
     pass
 else:
     st.divider()
     st.subheader("My Games")
-    with st.expander("Select Game"):
+    with st.container(border=True):
         game_choice = None
         if st.session_state.game_log is not None and len(st.session_state.game_log) > 0:
             archon_games, alliance_games, sealed_games = st.tabs(['Archon', 'Alliance', 'Sealed'])
             for form, tab in zip(['archon', 'alliance', 'sealed'], [archon_games, alliance_games, sealed_games]):
                 with tab:
                     if form != 'sealed':
-                        game_choice = st.dataframe(st.session_state.game_log[form][['Date', 'Deck', 'Opponent Deck', 'Opponent', 'Winner', 'Turns']], on_select='rerun', selection_mode='single-row', hide_index=True)
+                        c1, _ = st.columns([99, 1])
+                        df_cols = ['Date', 'Deck', 'Opponent Deck', 'Opponent', 'Winner', 'Turns']
                     else:
                         c1, _ = st.columns([6, 4])
-                        game_choice = c1.dataframe(st.session_state.game_log[form][['Date', 'Opponent', 'Winner', 'Turns']], on_select='rerun', selection_mode='single-row', hide_index=True)
+                        df_cols = ['Date', 'Opponent', 'Winner', 'Turns']
+
+                    game_df = st.session_state.game_log[form][df_cols]
+
+                    stylized_df, deck_colors = formatting.format_game_df(game_df, st.session_state.user_info.get('aliases', []) + [st.session_state.name], deck_colors=st.session_state.get('deck_colors', None), color_coding=st.session_state.settings.get('color_coding', True))
+                    st.session_state.deck_colors = deck_colors
+                    game_choice = c1.dataframe(stylized_df, on_select='rerun', selection_mode='single-row', hide_index=True)
 
                     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 5])
 
-                    analyze_games = c1.button("Analyze", key=f'analyze_games_{form}')
-                    if analyze_games:
-                        if game_choice:
-                            selected_game = game_choice['selection']['rows']
-                            if len(selected_game) == 0:
-                                st.error("No game selected")
-                            else:
-                                st.session_state.game_id = st.session_state.game_log[form].iloc[selected_game[0]]['ID']
-                                st.switch_page("pages/1_Game_Analysis.py")
+                    if c1.button("Analyze", key=f'analyze_games_{form}') and game_choice:
+                        selected_game = game_choice['selection']['rows']
+                        if len(selected_game) == 0:
+                            st.error("No game selected")
+                        else:
+                            st.session_state.game_analysis_id = st.session_state.game_log[form].iloc[selected_game[0]]['ID']
+                            st.switch_page("pages/1_Game_Analysis.py")
 
-                    feature_games = c2.button("Feature", key=f'feature_games_{form}')
-                    if feature_games:
-                        if game_choice:
-                            selected_game = game_choice['selection']['rows']
-                            if len(selected_game) == 0:
-                                st.error("No game selected")
+                    if c2.button("Feature", key=f'feature_games_{form}') and game_choice:
+                        selected_game = game_choice['selection']['rows']
+                        if len(selected_game) == 0:
+                            st.error("No game selected")
+                        else:
+                            game_analysis_id = st.session_state.game_log[form].iloc[selected_game[0]]['ID']
+                            if database.feature_game(game_analysis_id):
+                                st.success("Game featured!")
                             else:
-                                game_id = st.session_state.game_log[form].iloc[selected_game[0]]['ID']
-                                if database.feature_game(game_id):
-                                    st.success("Game featured!")
-                                else:
-                                    st.error("Game has already been featured.")
+                                st.error("Game has already been featured.")
 
-                    delete_games = c3.button("Delete", key=f'delete_games_{form}', type='primary')
-                    if delete_games:
-                        if game_choice:
-                            selected_game = game_choice['selection']['rows']
-                            if len(selected_game) == 0:
-                                st.error("No game selected")
-                            else:
-                                game_id = st.session_state.game_log[form].iloc[selected_game[0]]['ID']
-                                database.delete_game(game_id)
-                                st.success("Game deleted")
+                    if c3.button("Delete", key=f'delete_games_{form}', type='primary') and game_choice:
+                        selected_game = game_choice['selection']['rows']
+                        if len(selected_game) == 0:
+                            st.error("No game selected")
+                        else:
+                            game_analysis_id = st.session_state.game_log[form].iloc[selected_game[0]]['ID']
+                            database.delete_game(game_analysis_id)
+                            st.success("Game deleted")
 
                     if form == 'alliance':
                         if c4.button("Auto-Scan", key=f'auto_scan_{form}'):
                             with st.spinner('Scanning games...'):
-                                print(f"Initializing Scan Process for {st.session_state.name}")
-                                alliances_updated = 0
-                                alliances = database.get_user_alliances(st.session_state.name, st.session_state.user_info['aliases'])
-                                alliance_card_dict = {}
-                                for alliance_idx, alliance in alliances.iterrows():
-                                    alliance_card_dict[alliance['alliance']] = [c['cardTitle'] for j in range(3) for c in alliance['data']['deck']['housesAndCards'][j]['cards']]
-                                for scan_format in 'alliance', 'sealed':
-                                    print(f"Scanning {scan_format} games")
-                                    for idx, row in st.session_state.game_log[scan_format].iterrows():
-                                        game_id = row['ID'][0]
-                                        print(f"Checking game [{game_id}]")
-                                        player_name = row['Player'][0]
-                                        cards_played = row['Game Log'][0][player_name]['individual_cards_played'][-1]
-                                        opponent_name = row['Opponent'][0]
-                                        opponent_cards_played = row['Game Log'][0][opponent_name]['individual_cards_played'][-1]
-                                        for cp in [cards_played, opponent_cards_played]:
-                                            if cp == cards_played and row['Deck'][0] != '---':
-                                                print(f"Deck Skipped")
-                                                continue
-                                            elif cp == opponent_cards_played and row['Opponent Deck'][0] != '---':
-                                                print(f"Deck Skipped")
-                                                continue
-                                            print(f"Cards Played: {cp.keys()}")
-                                            possible_alliances = {}
-                                            for k, v in alliance_card_dict.items():
-                                                accuracy = len([c for c in cp.keys() if c in v]) / len(cp.keys())
-                                                possible_alliances[k] = accuracy
-                                            most_likely = max(possible_alliances, key=possible_alliances.get)
-                                            likelihood = possible_alliances[most_likely]
-                                            print(f"Most Likely: [{most_likely}] ({round(100 * likelihood)})")
-                                            if likelihood > ALLIANCE_SCAN_THRESHOLD:
-                                                link = alliances.loc[alliances['alliance'] == most_likely, 'link'].iloc[0]
-                                                success, message = database.update_alliance_deck(game_id, most_likely, link, player_deck=cp == cards_played)
-                                                if success:
-                                                    alliances_updated += 1
-                                                else:
-                                                    st.toast(f"{message} [{game_id}]", icon='❌')
-                                            # else:
-                                            #     database.update_alliance_deck(game_id, '---', 'https://decksofkeyforge.com/', player_deck=cp == cards_played)
+                                st.session_state, alliances_updated = database.auto_scan_alliance_games(st.session_state)
+
                                 st.toast(f"({alliances_updated}) Alliances Updated", icon=':material/done_all:')
 
-                                # If the top result is over a certain threshold, assign the alliance
-
         else:
-            st.write("No games played.")
+            st.write("No games played. Download the KeyTracker client above to start tracking your games!")
 
     st.divider()
     st.subheader("Analyze Deck")
-    with st.expander("Select Deck"):
+    with st.container(border=True):
         deck_choice = None
-        # st.write('Filter Games')
-        # c1, c2, c3, c4 = st.columns([1, 1, 1, 1], vertical_alignment='bottom')
-        # sas_min = c1.text_input('SAS Min.')
-        # if sas_min:
-        #     try:
-        #         sas_min = int(sas_min)
-        #     except:
-        #         sas_min = 0
-        #
-        # sas_max = c2.text_input('SAS Max.')
-        # if sas_max:
-        #     try:
-        #         sas_max = int(sas_max)
-        #     except:
-        #         sas_max = 1000
 
         if st.session_state.deck_log is not None and len(st.session_state.game_log) > 0:
             archon_games, alliance_games, sealed_games = st.tabs(['Archon', 'Alliance', 'Sealed'])
@@ -412,48 +343,57 @@ else:
                 with tab:
                     if form != 'sealed':
                         c1, _ = st.columns([6, 4])
-                        deck_choice = c1.dataframe(st.session_state.deck_log[form][['Deck', 'Games', 'Win-Loss', 'Winrate']], on_select='rerun', selection_mode='single-row', hide_index=True)
+                        df_cols = ['Deck', 'Games', 'Win-Loss', 'Winrate']
                     else:
                         c1, _ = st.columns([1, 2])
-                        deck_choice = c1.dataframe(st.session_state.deck_log[form][['Games', 'Win-Loss', 'Winrate']], on_select='rerun', selection_mode='single-row', hide_index=True)
+                        df_cols = ['Games', 'Win-Loss', 'Winrate']
 
-                    analyze_deck = st.button("Analyze", key=f'analyze_deck_{form}')
-                    if analyze_deck:
-                        if deck_choice:
-                            selected_deck = deck_choice['selection']['rows']
-                            if len(selected_deck) == 0:
-                                st.error("No deck selected")
-                            else:
-                                if 'elo_data' in st.session_state:
-                                    del st.session_state['elo_data']
-                                if 'deck_games' in st.session_state:
-                                    del st.session_state['deck_games']
-                                if 'deck_data' in st.session_state:
-                                    del st.session_state['deck_data']
-                                if 'share_id' in st.session_state:
-                                    del st.session_state['share_id']
-                                # if sas_min:
-                                #     st.session_state.sas_min = sas_min
-                                # else:
-                                #     if 'sas_min' in st.session_state:
-                                #         del st.session_state['sas_min']
-                                # if sas_max:
-                                #     st.session_state.sas_max = sas_max
-                                # else:
-                                #     if 'sas_max' in st.session_state:
-                                #         del st.session_state['sas_max']
+                    df_col_config = {
+                        "Deck": st.column_config.TextColumn(width='large'),
+                        "Winrate": st.column_config.NumberColumn(format='percent', width='small'),
+                        "Win-Loss": st.column_config.TextColumn(width='small')
+                    }
 
-                                st.session_state.deck_selection = st.session_state.deck_log[form].iloc[selected_deck]
-                                deck = st.session_state.deck_selection['Deck'].iat[0][0]
-                                elo_data = database.get_elo(st.session_state.name, deck, form)
-                                st.session_state.elo_data = elo_data
-                                st.session_state.deck = deck
-                                st.session_state.deck_data_compare = None
-                                share_id = elo_data['_id']
-                                st.session_state.share_id = share_id
-                                st.switch_page("pages/2_Deck_Analysis.py")
+                    deck_df = st.session_state.deck_log[form][df_cols]
+                    stylized_df, deck_colors = formatting.format_deck_df(deck_df, deck_colors=st.session_state.get('deck_colors', None), color_coding=st.session_state.settings.get('color_coding', True))
+
+                    deck_choice = c1.dataframe(stylized_df, on_select='rerun', selection_mode='single-row', hide_index=True, column_config=df_col_config)
+
+                    if st.button("Analyze", key=f'analyze_deck_{form}') and deck_choice:
+                        selected_deck = deck_choice['selection']['rows']
+                        if len(selected_deck) == 0:
+                            st.error("No deck selected")
+                        else:
+                            if 'elo_data' in st.session_state:
+                                del st.session_state['elo_data']
+                            if 'deck_games' in st.session_state:
+                                del st.session_state['deck_games']
+                            if 'deck_data' in st.session_state:
+                                del st.session_state['deck_data']
+                            if 'share_id' in st.session_state:
+                                del st.session_state['share_id']
+                            # if sas_min:
+                            #     st.session_state.sas_min = sas_min
+                            # else:
+                            #     if 'sas_min' in st.session_state:
+                            #         del st.session_state['sas_min']
+                            # if sas_max:
+                            #     st.session_state.sas_max = sas_max
+                            # else:
+                            #     if 'sas_max' in st.session_state:
+                            #         del st.session_state['sas_max']
+
+                            st.session_state.deck_selection = st.session_state.deck_log[form].iloc[selected_deck]
+                            deck = st.session_state.deck_selection['Deck'].iat[0]
+                            elo_data = database.get_elo(st.session_state.name, deck, form)
+                            st.session_state.elo_data = elo_data
+                            st.session_state.deck = deck
+                            st.session_state.deck_data_compare = None
+                            share_id = elo_data['_id']
+                            st.session_state.share_id = share_id
+                            st.switch_page("pages/2_Deck_Analysis.py")
         else:
-            st.write("No games played.")
+            st.write("Not enough games played (Min. 5 games)")
 
     st.write('')
     st.write('')
@@ -463,4 +403,7 @@ else:
     if 'name_conversion_dict' not in st.session_state:
         st.session_state.name_conversion_dict = name_conversion_dict
 
-    authenticator.logout()
+    def clear_session_state(*args):
+        st.session_state = states.clear_state(st.session_state)
+
+    authenticator.logout(callback=clear_session_state)

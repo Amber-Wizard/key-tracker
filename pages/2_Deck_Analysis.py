@@ -4,25 +4,15 @@ import numpy as np
 import random
 from itertools import combinations
 
+import calcs
 import database
+import formatting
 import graphing
 import analysis
 import dok_api
+from calcs import subtract_dicts
 
 house_dict = graphing.house_dict
-
-
-def subtract_dicts(old_dict, new_dict):
-    # Subtract values from the new dict based on the old dict
-    result = {}
-    for key, value in new_dict.items():
-        if key in old_dict:
-            difference = value - old_dict[key]
-            if difference > 0:
-                result[key] = difference
-        else:
-            result[key] = value
-    return result
 
 
 try:
@@ -172,14 +162,9 @@ if 'shareID' in st.query_params:
         pass
     else:
         st.session_state.share_id = share_id
-        if 'deck_selection' in st.session_state:
-            del st.session_state['deck_selection']
-        if 'elo_data' in st.session_state:
-            del st.session_state['elo_data']
-        if 'deck_games' in st.session_state:
-            del st.session_state['deck_games']
-        if 'deck_data' in st.session_state:
-            del st.session_state['deck_data']
+        for value in ['deck_selection', 'elo_data', 'deck_games', 'deck_data']:
+            if value in st.session_state:
+                del st.session_state[value]
 
 if 'share_id' in st.session_state and 'elo_data' not in st.session_state:
     with st.spinner('Getting ELO...'):
@@ -196,18 +181,28 @@ if 'deck_games' not in st.session_state:
         else:
             st.error(f"Error locating deck pilot.")
             st.session_state.pilot = ''
+
     pilot = st.session_state.pilot
     deck = st.session_state.deck
+
     with st.spinner('Getting pilot info...'):
         st.session_state.pilot_info = database.get_user(pilot)
         if 'aliases' not in st.session_state.pilot_info:
             st.session_state.pilot_info['aliases'] = []
+
     with st.spinner('Getting deck games...'):
         deck_games = database.get_deck_games(pilot, deck, aliases=st.session_state.pilot_info['aliases'], trim_lists=True)
+        winner_check = deck_games['Winner'] == " has won the game "
+        length_check = deck_games.apply(lambda r: len(r['Game Log'][r['Opponent']]['amber']) <= 2, axis=1)
+        cards_played_check = deck_games.apply(lambda r: min(r['Game Log'][r['Player']]['cards_played'][0], r['Game Log'][r['Opponent']]['cards_played'][0]) > 0, axis=1)
+        adaptive_check = deck_games['Game Log'].apply(lambda g: "-Error-" in g)
+        combined_cond = winner_check | length_check | adaptive_check | cards_played_check
+        error_games = deck_games[combined_cond]
+        deck_games = deck_games[~combined_cond]
+
     with st.spinner('Processing games...'):
         deck_games['Opponent Deck ID'] = deck_games['Opponent Deck Link'].str.split('/').str[-1]
 
-        # Vectorized retrieval of 'Dok Data' and 'Opponent Set'
         if st.session_state.deck_format.lower() == 'archon' or 'alliance':
             deck_games['Dok Data'] = deck_games['Opponent Deck ID'].apply(database.get_dok_cache_deck_id)
 
@@ -225,52 +220,30 @@ if 'deck_games' not in st.session_state:
             if dok_data:
                 try:
                     return dok_data['Data']['deck']['sasRating']
-                except:
-                    return 0
+                except KeyError:
+                    return 'SAS Error'
             else:
                 return 'No Deck Data'
 
         deck_games['Opponent Set'] = deck_games['Dok Data'].apply(lambda dok_data: get_deck_set(dok_data))
         deck_games['Opponent SAS'] = deck_games['Dok Data'].apply(lambda dok_data: get_deck_sas(dok_data))
 
-        if 'sas_min' in st.session_state:
-            sas_min = st.session_state.sas_min
-            deck_games = deck_games.loc[deck_games['Opponent SAS'] >= sas_min]
-
-        if 'sas_max' in st.session_state:
-            sas_max = st.session_state.sas_max
-            deck_games = deck_games.loc[deck_games['Opponent SAS'] <= sas_max]
-
         st.session_state.deck_games = deck_games
+        st.session_state.error_games = error_games
 
-        # Calculate winrate by 'Opponent Set' in a vectorized way
+        # Create set winrate df
         set_winrate_df = deck_games.groupby('Opponent Set').size().reset_index(name='Count')
-
-        # Vectorized 'Wins' calculation
-        set_winrate_df['Wins'] = deck_games.groupby('Opponent Set').apply(lambda x: (x['Winner'].isin(st.session_state.pilot_info['aliases'] + [pilot])).sum()).reset_index(drop=True)
-
-        # Calculate winrate in a vectorized way
+        set_winrate_df['Wins'] = deck_games.groupby('Opponent Set').apply(lambda x: (x['Winner'] == x['Player']).sum()).reset_index(drop=True)
         set_winrate_df['Winrate'] = (100 * set_winrate_df['Wins'] / set_winrate_df['Count']).round(0).astype(int)
-
-        # Save result to session state
         st.session_state.set_winrate_df = set_winrate_df
 
+        # Create house winrate df
         deck_games['Opponent Houses'] = deck_games['Dok Data'].apply(lambda dok_data: [hd['house'] for hd in dok_data['Data']['deck']['housesAndCards']] if dok_data else 'No Deck Data')
-
-        # Step 2: Expand the DataFrame so that each game is associated with each house
         expanded_deck_games = deck_games.explode('Opponent Houses')
-
-        # Group by 'Opponent Houses' and count games
         house_winrate_df = expanded_deck_games.groupby('Opponent Houses').size().reset_index(name='Count')
-
-        # Calculate the number of wins for each house
-        house_winrate_df['Wins'] = expanded_deck_games.groupby('Opponent Houses').apply(lambda x: (x['Winner'].isin(st.session_state.pilot_info['aliases'] + [pilot])).sum()).reset_index(drop=True)
-
-        # Calculate winrate for each house
+        house_winrate_df['Wins'] = expanded_deck_games.groupby('Opponent Houses').apply(lambda x: (x['Winner'] == x['Player']).sum()).reset_index(drop=True)
         house_winrate_df['Winrate'] = (100 * house_winrate_df['Wins'] / house_winrate_df['Count']).round(0).astype(int)
-
         st.session_state.house_winrate_df = house_winrate_df
-
 
 if 'deck_selection' not in st.session_state:
     if 'pilot' not in st.session_state:
@@ -279,23 +252,25 @@ if 'deck_selection' not in st.session_state:
         else:
             st.error(f"Error locating deck pilot.")
             st.session_state.pilot = ''
+
     pilot = st.session_state.pilot
     deck_games = st.session_state.deck_games
     deck_link = st.session_state.deck_games['Deck Link'].iat[0]
+    deck_format = st.session_state.deck_format
 
-    if st.session_state.deck_format.lower() == 'archon':
+    if deck_format.lower() == 'archon':
         st.session_state.deck_dok_data = database.get_dok_cache_deck_id(deck_link.split('/')[-1])['Data']
-    elif st.session_state.deck_format.lower() == 'alliance':
+    elif deck_format.lower() == 'alliance':
         st.session_state.deck_dok_data = database.get_alliance(st.session_state.deck, st.session_state.pilot)['data']
     else:
         st.session_state.deck_dok_data = None
 
-    wins = (deck_games['Winner'].isin(st.session_state.pilot_info['aliases'] + [pilot])).sum()
+    wins = (deck_games['Winner'] == deck_games['Player']).sum()
     games = len(deck_games)
-    firsts = (deck_games['Starting Player'].isin(st.session_state.pilot_info['aliases'] + [pilot])).sum()
+    firsts = (deck_games['Starting Player'] == deck_games['Player']).sum()
     seconds = games - firsts
     losses = games - wins
-    winrate = round(100 * wins / games)
+    winrate = calcs.calculate_winrate(wins, games)
 
     st.session_state.wins = wins
     st.session_state.games = games
@@ -303,11 +278,10 @@ if 'deck_selection' not in st.session_state:
     st.session_state.winrate = winrate
     st.session_state.firsts = firsts
     st.session_state.seconds = seconds
+    st.session_state.deck_link = deck_link
 
 
 def pull_deck_data(d, p, exp, c=False):
-    # st.write(st.session_state.deck_dok_data)
-    # expansion = st.session_state.deck_dok_data['deck']['expansion']
     st.session_state.deck_data_compare = None
     st.session_state.compare_deck = None
     st.session_state.compare_deck_link = None
@@ -337,26 +311,29 @@ else:
         else:
             st.error(f"Error locating deck pilot.")
             st.session_state.pilot = ''
+
     pilot = st.session_state.pilot
     deck = st.session_state.deck
     score = st.session_state.score
+
     c1, c2, c3, c4 = st.columns([22, 1, 1, 1])
-    if 'name' in st.session_state and (st.session_state.name == pilot or 'aliases' in st.session_state and pilot in st.session_state.aliases):
-        pass
-    else:
+
+    if 'name' not in st.session_state or (st.session_state.name != pilot and pilot not in st.session_state.get('aliases', [])):
         c1.markdown(f'<b class="pilot-font">{pilot}</b>', unsafe_allow_html=True)
-    home = c3.button("🏠")
-    if home:
+
+    if c3.button("🏠"):
         st.switch_page("Home.py")
+
     st.write('')
     c1, c2 = st.columns([7, 1])
+
     if st.session_state.deck_format.lower() == 'sealed':
         c1.markdown(f'<b class="deck-font">Sealed</b>', unsafe_allow_html=True)
     else:
         c1.markdown(f'<b class="deck-font">{deck}</b>', unsafe_allow_html=True)
 
+    deck_link = st.session_state.deck_link
     c2.link_button("Deck Info", deck_link)
-
     if 'name' in st.session_state and st.session_state.name == pilot:
         if 'deck_log' in st.session_state:
             deck_log = st.session_state.deck_log
@@ -405,33 +382,40 @@ else:
         c2.link_button("Deck Info", st.session_state.compare_deck_link)
 
     with st.spinner('Analyzing games...'):
-        wins = st.session_state.wins
-        losses = st.session_state.losses
-        games = st.session_state.games
-        winrate = st.session_state.winrate
+        wins = int(st.session_state.wins)
+        losses = int(st.session_state.losses)
+        games = int(st.session_state.games)
+        winrate = float(st.session_state.winrate)
 
-        deck_df, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, advantage_charts, player_card_data, opponent_card_data, turns = graphing.analyze_deck(pilot, st.session_state.deck_data, games, st.session_state.deck_format)
+        deck_analysis_dict = graphing.analyze_deck(pilot, st.session_state.deck_data, games, st.session_state.deck_format)
+        st.session_state.deck_analysis_dict = deck_analysis_dict
+        player_card_data = deck_analysis_dict['player_card_data']
+        opponent_card_data = deck_analysis_dict['opponent_card_data']
+        # deck_df, player_amber_sources, opponent_amber_sources, player_house_calls, opponent_house_calls, advantage_charts, player_card_data, opponent_card_data, turns
         if 'deck_data_compare' in st.session_state and st.session_state.deck_data_compare is not None:
             compare_data = graphing.analyze_deck(pilot, st.session_state.deck_data_compare, st.session_state.compare_games, st.session_state.deck_format)
             compare_data[0].columns = compare_data[0].columns.map(lambda c: c + ' (C)')
-            min_length = min(len(deck_df), len(compare_data[0]))
-            chart_df = pd.concat([deck_df, compare_data[0]], axis=1)
+            min_length = min(len(deck_analysis_dict['game_dataframe']), len(compare_data[0]))
+            chart_df = pd.concat([deck_analysis_dict['game_dataframe'], compare_data[0]], axis=1)
             chart_df = chart_df[:min_length]
-            turn_df = pd.DataFrame(turns, columns=['Games'])
+            turn_df = pd.DataFrame(deck_analysis_dict['turns'], columns=['% Games'])
             turn_list = compare_data[-1]
-            if len(turn_list) == len(turn_df):
-                turn_df['Games (C)'] = turn_list
-            elif len(turn_list) > len(turn_df):
+            if len(turn_list) > len(turn_df):
                 turn_list = turn_list[:len(turn_df)]
-                turn_df['Games (C)'] = turn_list
-            elif len(turn_df) > len(turn_list):
+            elif len(turn_list) < len(turn_df):
                 turn_df = turn_df[:len(turn_list)]
-                turn_df['Games (C)'] = turn_list
+            turn_df['Games (C)'] = turn_list
             chart_colors = [(255, 75, 75), (255, 75, 75, 0.6), (96, 180, 255), (96, 180, 255, 0.6)]
             comparison = True
         else:
-            chart_df = deck_df
-            turn_df = pd.DataFrame(turns, columns=['Games'])
+            chart_df = deck_analysis_dict['game_dataframe']
+            chart_df['Player Reap Rate'] *= 100
+            chart_df['Opponent Reap Rate'] *= 100
+            turn_df = pd.DataFrame(deck_analysis_dict['turns'], columns=['% Games'])
+            turn_df['Wins'] = deck_analysis_dict['player_data']['turns_won']
+            turn_df['Games'] = deck_analysis_dict['player_data']['turns']
+            turn_df['Winrate'] = round(100 * turn_df['Wins'] / turn_df['Games'])
+            turn_df = turn_df[turn_df['Games'] >= max(round(games/10), 3)]
             chart_colors = [(255, 75, 75), (96, 180, 255)]
             comparison = False
 
@@ -450,29 +434,21 @@ else:
         c_losses = c_loss_dict.get(card, 0)
 
         if c_wins + c_losses > 0:
-            c_winrate = round(100*c_wins / (c_wins + c_losses))
+            c_winrate = calcs.calculate_winrate(c_wins, c_wins + c_losses, exception=np.nan)
             player_card_data.at[idx, 'WR(P)%'] = c_winrate
 
-            try:
-                c_winrate_wo = round(100 * (int(wins) - int(c_wins)) / (int(wins) + int(losses) - int(c_wins) - int(c_losses)))
-            except:
-                c_winrate_wo = np.nan
+            c_winrate_wo = calcs.calculate_winrate(wins - c_wins, wins + losses - c_wins - c_losses, exception=np.nan)
 
             player_card_data.at[idx, 'WR(-P)%'] = c_winrate_wo
 
-            player_card_data.at[idx, 'Games P%'] = round(100*(c_wins + c_losses) / games)
+            player_card_data.at[idx, 'Games P%'] = calcs.calculate_winrate(c_wins + c_losses, games, exception=np.nan)
 
             if card in c_drawn_dict:
-                player_card_data.at[idx, 'WR(D)%'] = round(100*c_drawn_dict[card]['wins'] / c_drawn_dict[card]['drawn'])
+                player_card_data.at[idx, 'WR(D)%'] = calcs.calculate_winrate(c_drawn_dict[card]['wins'], c_drawn_dict[card]['drawn'], exception=np.nan)
 
-                player_card_data.at[idx, 'Games D%'] = round(100*c_drawn_dict[card]['drawn'] / games)
+                player_card_data.at[idx, 'Games D%'] = calcs.calculate_winrate(c_drawn_dict[card]['drawn'], games, exception=np.nan)
 
-                try:
-                    d_winrate_wo = round(100 * (int(wins) - c_drawn_dict[card]['wins']) / (int(wins) + int(losses) - c_drawn_dict[card]['drawn']))
-                except:
-                    d_winrate_wo = np.nan
-
-                player_card_data.at[idx, 'WR(-D)%'] = d_winrate_wo
+                player_card_data.at[idx, 'WR(-D)%'] = calcs.calculate_winrate(wins - c_drawn_dict[card]['wins'], wins + losses - c_drawn_dict[card]['drawn'], exception=np.nan)
 
     opponent_card_data['Games P%'] = 0
     opponent_card_data['WR(P)%'] = np.nan
@@ -488,23 +464,19 @@ else:
             c_winrate = round(100*c_wins / (c_wins + c_losses))
             opponent_card_data.at[idx, 'WR(P)%'] = c_winrate
 
-            try:
-                c_winrate_wo = round(100*(int(wins) - int(c_wins)) / (int(wins) + int(losses) - int(c_wins) - int(c_losses)))
-            except:
-                c_winrate_wo = np.nan
+            c_winrate_wo = calcs.calculate_winrate(wins - c_wins, wins + losses - c_wins - c_losses, exception=np.nan)
 
             opponent_card_data.at[idx, 'WR(-P)%'] = c_winrate_wo
 
             opponent_card_data.at[idx, 'Games P%'] = round(100*(c_wins + c_losses) / games)
 
-    # player_card_data['Impact'] = round((player_card_data['WR(P)%'] - player_card_data['WR(-P)%']) * (50-abs(player_card_data['Games P%']-50)) / 50, 1)
-    # opponent_card_data['Impact'] = round((opponent_card_data['WR(P)%'] - opponent_card_data['WR(-P)%']) * (50-abs(opponent_card_data['Games P%']-50)) / 50, 1)
+    # player_card_data['Impact'] = round((player_card_data['WR(P)%'] - player_card_data['WR(-P)%']))
+    # opponent_card_data['Impact'] = round((opponent_card_data['WR(P)%'] - opponent_card_data['WR(-P)%']))
 
     st.divider()
+    tabs = st.tabs(['Info', 'Stats', 'Charts', 'Advantage', 'Cards'])#, 'Mulligan'])
 
-    tab_1, tab_2, tab_3, tab_4 = st.tabs(['Info', 'Charts', 'Advantage', 'Cards'])#, 'Mulligan'])
-
-    with tab_1:
+    with tabs[0]:
         with st.container(border=True):
 
             wins = st.session_state.wins
@@ -525,10 +497,7 @@ else:
                     legacy_wins += legacy_set_wins
                     legacy_losses += legacy_set_losses
 
-            if legacy_wins + legacy_losses > 0:
-                legacy_winrate = round(100 * legacy_wins / (legacy_wins + legacy_losses))
-            else:
-                legacy_winrate = '--'
+            legacy_winrate = round(100 * legacy_wins / (legacy_wins + legacy_losses)) if legacy_wins + legacy_losses > 0 else '--'
 
             metadata = database.get_meta_sets()
             set_winrate_df.drop(set_winrate_df[set_winrate_df['Opponent Set'] == 'No Deck Data'].index, inplace=True)
@@ -547,30 +516,18 @@ else:
 
             c1.markdown(f'<b class="plain-font">  {games}</b>', unsafe_allow_html=True)
             c2.markdown(f'<b class="hero-font">  {wins}</b><b class="plain-font">-</b><b class="villain-font">{losses}</b>', unsafe_allow_html=True)
-            if winrate >= 50:
-                c3.markdown(f'<b class="hero-font">   {winrate}%</b>', unsafe_allow_html=True)
-            elif winrate < 50:
-                c3.markdown(f'<b class="villain-font">   {winrate}%</b>', unsafe_allow_html=True)
-            if legacy_winrate == '--':
-                c4.markdown(f'<b class="plain-font">   {legacy_winrate}%</b>', unsafe_allow_html=True)
-            elif legacy_winrate >= 50:
-                c4.markdown(f'<b class="hero-font">   {legacy_winrate}%</b>', unsafe_allow_html=True)
-            elif legacy_winrate < 50:
-                c4.markdown(f'<b class="villain-font">   {legacy_winrate}%</b>', unsafe_allow_html=True)
-            if weighted_avg_winrate == '--':
-                c5.markdown(f'<b class="plain-font">  {weighted_avg_winrate}%</b>', unsafe_allow_html=True)
-            elif weighted_avg_winrate >= 50:
-                c5.markdown(f'<b class="hero-font">  {weighted_avg_winrate}%</b>', unsafe_allow_html=True)
-            elif weighted_avg_winrate < 50:
-                c5.markdown(f'<b class="villain-font">  {weighted_avg_winrate}%</b>', unsafe_allow_html=True)
+            winrate_string, font_color = formatting.transform_pct_string(winrate, extra_padding=2, return_color=True)
+            c3.markdown(f'<b class="{font_color}-font">{winrate_string}</b>', unsafe_allow_html=True)
+            legacy_winrate_string, font_color = formatting.transform_pct_string(legacy_winrate, extra_padding=2, return_color=True)
+            c4.markdown(f'<b class="{font_color}-font">{legacy_winrate_string}</b>', unsafe_allow_html=True)
+            weighted_avg_winrate_string, font_color = formatting.transform_pct_string(weighted_avg_winrate, extra_padding=1, return_color=True)
+            c5.markdown(f'<b class="{font_color}-font">{weighted_avg_winrate_string}</b>', unsafe_allow_html=True)
             if score:
-                if score >= 1500:
-                    c6.markdown(f'<b class="hero-font">{score}</b>', unsafe_allow_html=True)
-                elif score < 1500:
-                    c6.markdown(f'<b class="villain-font">{score}</b>', unsafe_allow_html=True)
+                font_color = 'hero' if score >= 1500 else 'villain'
+                c6.markdown(f'<b class="{font_color}-font">{score}</b>', unsafe_allow_html=True)
 
+        # st.write(st.session_state.deck_analysis_dict['player_data'])
         # House Strength
-
         if st.session_state.deck_format.lower() != 'sealed':
             if st.session_state.deck_dok_data:
                 houses_and_cards = st.session_state.deck_dok_data['deck']['housesAndCards']
@@ -588,6 +545,11 @@ else:
                     },
                     'Cards Played': 0,
                     'Amber Gained': 0,
+                    'Reaps': 0,
+                    'Icons': 0,
+                    'Steal': 0,
+                    'Effects': 0,
+                    'House Calls': 0,
                 } for h in house_cards.keys()}
 
             else:
@@ -600,12 +562,17 @@ else:
 
             total_cards_played = player_card_data['Played'].sum()
             total_amber_gained = player_card_data['Amber'].sum()
+            total_house_calls = sum(v for d in st.session_state.deck_analysis_dict['player_data']['house_calls'] for v in d.values())
 
             if houses_and_cards:
 
                 cards_checked = []
 
                 for i, house in enumerate(house_cards):
+                    for house_call_dict in st.session_state.deck_analysis_dict['player_data']['house_calls']:
+                        if house.lower() in house_call_dict:
+                            house_scores[house]['House Calls'] += house_call_dict[house.lower()]
+
                     for card in house_cards[house]:
                         c_data = player_card_data.loc[player_card_data['Card'] == card]
                         try:
@@ -647,9 +614,17 @@ else:
                                 amber_gained = 0
                             house_scores[house]['Amber Gained'] += amber_gained
 
+                            for amber_source in ['Icons', 'Reaps', 'Steal', 'Effects']:
+                                try:
+                                    amber_gained = c_data[amber_source].iloc[0]
+                                except:
+                                    amber_gained = 0
+                                house_scores[house][amber_source] += amber_gained
+
+                amber_source_max_y = max([v["Amber Gained"] for v in house_scores.values()]) * 1.2
+                for i, house in enumerate(house_cards):
                     h_wr = round(100 * house_scores[house]['Rating']['Wins'] / house_scores[house]['Rating']['Games'])
                     h_dp = round(100 * (1 - house_scores[house]['Dependence']['Wins'] / house_scores[house]['Dependence']['Games']))
-
                     with cols[i].container(border=True):
                         st.markdown(f'<b class="plain-font">{house} Strength</b>', unsafe_allow_html=True, help="House strength is the average winrate among cards of a certain house in your deck (when they are played)")
                         c1, c2, _ = st.columns([2.8, 1, 0.2])
@@ -660,74 +635,200 @@ else:
                         st.metric(f'{house} Dependence', value=h_dp, delta=round(h_dp - (100 - winrate)), delta_color='inverse', label_visibility='collapsed')
                         st.divider()
                         st.markdown(f'<p class="plain-font">Cards Played: {round(100*house_scores[house]["Cards Played"]/total_cards_played)}%</p>', unsafe_allow_html=True)
+                        st.markdown(f'<p class="plain-font">House Calls: {round(100*house_scores[house]["House Calls"]/total_house_calls)}%</p>', unsafe_allow_html=True)
                         st.markdown(f'<p class="plain-font">Amber Gained: {round(100*house_scores[house]["Amber Gained"]/total_cards_played)}%</p>', unsafe_allow_html=True)
+                        h_dict = house_scores[house]
+                        amber_graph = graphing.amber_sources([h_dict[amber_source] for amber_source in ['Effects', 'Steal', 'Reaps', 'Icons', 'Amber Gained']], amber_source_max_y)
+                        st.plotly_chart(amber_graph, use_container_width=True)
 
         with st.container(border=True):
-            sets = ['CotA', 'AoA', 'WC', 'MM', 'DT', 'WoE', 'GR', 'AES', 'ToC', 'MMM', 'VM23', 'VM24', 'Disc']
+            st.subheader('vs Sets')
+            # sets = ['CotA', 'AoA', 'WC', 'MM', 'DT', 'WoE', 'GR', 'AES', 'ToC', 'MMM', 'VM23', 'VM24', 'Disc', 'PV']
             set_winrate_df = st.session_state.set_winrate_df
+            set_winrate_df['Playrate'] = round(100 * set_winrate_df['Count'] / games, 1)
+            set_winrate_dict = pd.Series(set_winrate_df['Winrate'].values, index=set_winrate_df['Opponent Set']).to_dict()
+            set_winrate_graph = graphing.set_meta_graph(set_winrate_dict, winrate=True)
+            set_play_rate_dict = pd.Series(set_winrate_df['Playrate'].values, index=set_winrate_df['Opponent Set']).to_dict()
+            set_play_rate_graph = graphing.set_meta_graph(set_play_rate_dict)
             if len(set_winrate_df) <= 1:
                 st.markdown(f'<p class="plain-font">--No Set Data--</p>', unsafe_allow_html=True)
             else:
-                cols = st.columns([0.25] + [1 for i in range(max(len(set_winrate_df), 4))])
-                col_num = 1
-                for s in sets:
-                    if s in set_winrate_df['Opponent Set'].values:
-                        cols[col_num].markdown(f'<b class ="{s}-font">{s}</b>', unsafe_allow_html=True)
-                        set_winrate = set_winrate_df.loc[set_winrate_df['Opponent Set'] == s, 'Winrate'].iat[0]
-                        set_games = set_winrate_df.loc[set_winrate_df['Opponent Set'] == s, 'Count'].iat[0]
-                        if set_winrate >= 50:
-                            cols[col_num].markdown(f'<b class="hero-font">{set_winrate}% {set_games}</b>', unsafe_allow_html=True)
-                        elif set_winrate < 50:
-                            cols[col_num].markdown(f'<b class="villain-font">{set_winrate}% {set_games}</b>', unsafe_allow_html=True)
-                        col_num += 1
+                # TODO: add key diff
+                chart_tab_1, chart_tab_2 = st.tabs(['Win Rate', 'Play Rate'])
+                with chart_tab_1:
+                    st.plotly_chart(set_winrate_graph, use_container_width=True)
+                with chart_tab_2:
+                    st.plotly_chart(set_play_rate_graph, use_container_width=True)
 
         with st.container(border=True):
+            st.subheader('vs Houses')
             house_winrate_df = st.session_state.house_winrate_df
+            house_winrate_df['Playrate'] = round(100 * house_winrate_df['Count'] / games, 1)
+            house_winrate_dict = pd.Series(house_winrate_df['Winrate'].values, index=house_winrate_df['Opponent Houses']).to_dict()
+            house_winrate_graph = graphing.house_meta_graph(house_winrate_dict, winrate=True)
+            house_play_rate_dict = pd.Series(house_winrate_df['Playrate'].values, index=house_winrate_df['Opponent Houses']).to_dict()
+            house_play_rate_graph = graphing.house_meta_graph(house_play_rate_dict, winrate=False)
             if len(house_winrate_df) <= 1:
                 st.markdown(f'<p class="plain-font">--No House Data--</bp', unsafe_allow_html=True)
             else:
-                st.write(' ')
-                cols = st.columns([0.25, 1, 1, 1, 1, 1, 1, 1])
-                col_num = 1
-                for h in house_dict:
-                    if h in house_winrate_df['Opponent Houses'].values:
-                        cols[col_num].image(house_dict[h]['Image'])
-                        house_winrate = house_winrate_df.loc[house_winrate_df['Opponent Houses'] == h, 'Winrate'].iat[0]
-                        house_games = house_winrate_df.loc[house_winrate_df['Opponent Houses'] == h, 'Count'].iat[0]
-                        if house_winrate >= 50:
-                            cols[col_num].markdown(f'<b class="hero-font"> {house_winrate}% {house_games}</b>', unsafe_allow_html=True)
-                        elif house_winrate < 50:
-                            cols[col_num].markdown(f'<b class="villain-font"> {house_winrate}% {house_games}</b>', unsafe_allow_html=True)
-                        col_num += 1
-                        if col_num > 7:
-                            col_num = 1
-        st.divider()
-        st.subheader("Deck Games")
-        with st.expander("Select Game"):
-            game_choice = None
-            game_choice = st.dataframe(st.session_state.deck_games[['Date', 'Deck', 'Opponent Deck', 'Opponent', 'Winner']], on_select='rerun', selection_mode='single-row', hide_index=True)
+                # TODO: add key diff
+                chart_tab_1, chart_tab_2 = st.tabs(['Win Rate', 'Play Rate'])
+                with chart_tab_1:
+                    st.plotly_chart(house_winrate_graph, use_container_width=True)
+                with chart_tab_2:
+                    st.plotly_chart(house_play_rate_graph, use_container_width=True)
 
-            analyze_games = st.button("Analyze", key=f'analyze_games')
-            if analyze_games:
-                if game_choice:
-                    selected_game = game_choice['selection']['rows']
-                    if len(selected_game) == 0:
-                        st.error("No game selected")
+        if 'name' in st.session_state and st.session_state.name == pilot:
+            st.divider()
+            st.subheader("Deck Games")
+            with st.expander("Select Game"):
+                stylized_df, _ = formatting.format_game_df(st.session_state.deck_games[['Date', 'Deck', 'Opponent Deck', 'Opponent', 'Winner']], player_names=[pilot] + st.session_state.pilot_info.get('aliases', []), deck_colors=st.session_state.get('deck_colors', None), color_coding=st.session_state.get('settings', {}).get('color_coding', True))
+                game_choice = st.dataframe(stylized_df, on_select='rerun', selection_mode='single-row', hide_index=True)
+
+                analyze_games = st.button("Analyze", key=f'analyze_games')
+                if analyze_games:
+                    if game_choice:
+                        selected_game = game_choice['selection']['rows']
+                        if len(selected_game) == 0:
+                            st.error("No game selected")
+                        else:
+                            st.session_state.game_analysis_id = st.session_state.deck_games.iloc[selected_game[0]]['ID']
+                            st.switch_page("pages/1_Game_Analysis.py")
+
+            if len(st.session_state.error_games) > 0:
+                st.subheader("Error Games")
+                with st.expander("Select Game"):
+                    stylized_df, _ = formatting.format_game_df(st.session_state.error_games[['Date', 'Deck', 'Opponent Deck', 'Opponent', 'Winner']], player_names=[pilot] + st.session_state.pilot_info.get('aliases', []), deck_colors=st.session_state.get('deck_colors', None), color_coding=st.session_state.get('settings', {}).get('color_coding', True))
+                    game_choice = st.dataframe(stylized_df, on_select='rerun', selection_mode='single-row', hide_index=True)
+
+                    analyze_games = st.button("Analyze", key=f'analyze_error_games')
+                    if analyze_games:
+                        if game_choice:
+                            selected_game = game_choice['selection']['rows']
+                            if len(selected_game) == 0:
+                                st.error("No game selected")
+                            else:
+                                st.session_state.game_analysis_id = st.session_state.error_games.iloc[selected_game[0]]['ID']
+                                st.switch_page("pages/1_Game_Analysis.py")
+
+    with tabs[1]:
+        w = turn_df["Games"].values
+        # st.write(chart_df)
+
+        def calculate_aggression_rating():
+            x = np.arange(len(turn_df))  # index as x
+            y = turn_df["Winrate"].values  # column values
+            coeffs = np.polyfit(x, y, 1, w=w)
+            slope = coeffs[0]
+            intercept = coeffs[1]
+
+            return round(-10 * slope, 1)
+
+        def calculate_cards_played_per_turn(y_vals, weights):
+            x = np.arange(len(y_vals))  # index as x
+            coeffs = np.polyfit(x, y_vals, 1, w=weights)
+            slope = coeffs[0]
+            intercept = coeffs[1]
+
+            return slope * 2
+
+        def calculate_amber_value_per_turn(y_vals, weights):
+            x = np.arange(len(y_vals))  # index as x
+            coeffs = np.polyfit(x, y_vals, 1, w=weights)
+            slope = coeffs[0]
+            intercept = coeffs[1]
+
+            return slope * 2
+
+        def calculate_basic_stats():
+            simple_stat_list = ['Cards', 'Amber', 'Delta', 'Creatures', 'Reap Rate', 'Survival Rate', 'Amber Defense', 'Forge Rate']
+            stat_dict = {p: {
+                'Cards': None,
+                'Amber': None,
+                'Expected Amber': None,
+            } for p in ['Player', 'Opponent']}
+
+            for p in ['Player', 'Opponent']:
+                for s_stat in simple_stat_list:
+                    vals = chart_df[f'{p} {s_stat}'].values
+
+                    cleaned = [(v, weight) for v, weight in zip(vals, w[:]) if not np.isnan(v)]
+                    if cleaned:
+                        vals, temp_w = zip(*cleaned)
+                        vals, temp_w = list(vals), list(temp_w)
                     else:
-                        st.session_state.game_id = st.session_state.deck_games.iloc[selected_game[0]]['ID']
-                        st.switch_page("pages/1_Game_Analysis.py")
+                        vals, temp_w = [], []
 
-    with tab_2:
+                    if s_stat == 'Cards':
+                        stat_dict[p][s_stat] = calculate_cards_played_per_turn(vals, temp_w)
+                    elif s_stat == 'Amber':
+                        stat_dict[p][s_stat] = calculate_amber_value_per_turn(vals, temp_w)
+                    else:
+                        stat_dict[p][s_stat] = np.average(vals, weights=temp_w)
+
+            for p in ['Player', 'Opponent']:
+                stat_dict[p]['Expected Amber'] = (stat_dict[p]['Delta'] + stat_dict[p]['Creatures'] * stat_dict[p]['Reap Rate'] / 100) * (1 - stat_dict['Player' if p == 'Opponent' else 'Opponent']['Amber Defense'] / 100)
+            # Cards played/turn
+
+            return stat_dict
+
+        with st.container(border=True):
+            c_cols = st.columns([3, 1, 4, 3, 1])
+            c_cols[0].subheader('Player')
+            c_cols[3].subheader('Opponent')
+            st.divider()
+            basic_stats = calculate_basic_stats()
+            stat_name_conversion_dict = {
+                'Cards': 'Cards Played/Turn',
+                'Expected Amber': 'Ex. Amber/Turn',
+                'Amber': 'Net Amber/Turn',
+                'Creatures': 'Avg. Creatures',
+                'Delta': 'Amber Delta',
+            }
+            add_percent_list = ['Reap Rate', 'Amber Defense', 'Survival Rate', 'Forge Rate']
+            for stat_name in basic_stats['Player'].keys():
+                player_stat = basic_stats['Player'][stat_name]
+                opponent_stat = basic_stats['Opponent'][stat_name]
+
+                c_cols = st.columns([3, 1, 4, 3, 1], vertical_alignment='center')
+                p_bar_val = min(1, max(0, round(player_stat / (player_stat + opponent_stat), 1)))
+                c_cols[2].progress(value=p_bar_val)
+
+                for p in 'Player', 'Opponent':
+                    col_start_idx = 0 if p == 'Player' else 3
+
+                    c_cols[col_start_idx].markdown(f'<b class="plain-font">  {f"{stat_name_conversion_dict.get(stat_name, stat_name)}: "}</b>', unsafe_allow_html=True)
+
+                    stat_val = basic_stats[p][stat_name]
+                    enemy_stat_val = basic_stats['Player' if p == 'Opponent' else 'Opponent'][stat_name]
+
+                    if stat_val == enemy_stat_val:
+                        font_type = 'plain'
+                    elif stat_val > enemy_stat_val:
+                        font_type = 'hero'
+                    elif stat_val < enemy_stat_val:
+                        font_type = 'villain'
+
+                    if stat_name in add_percent_list:
+                        c_cols[col_start_idx + 1].markdown(f'<b class="{font_type}-font">{str(round(stat_val))}%</b>', unsafe_allow_html=True)
+                    else:
+                        c_cols[col_start_idx+1].markdown(f'<b class="{font_type}-font">{str(round(stat_val, 1))}</b>', unsafe_allow_html=True)
+
+        # with st.container(border=True):
+        #     aggression_rating = calculate_aggression_rating()
+        #     st.write(f"Aggression: {aggression_rating}")
+
+    with tabs[2]:
         st.subheader("Game Length")
         if comparison:
-            y = ['Games', 'Games (C)']
+            y = ['% Games', '% Games (C)']
         else:
-            y = ['Games']
+            y = ['% Games', 'Winrate']
         st.line_chart(
             turn_df,
             x=None,
             y=y,
-            y_label='Games (%)',
+            color=[(180, 180, 255), (180, 180, 100)]
         )
 
         c1, c2 = st.columns(2)
@@ -751,7 +852,7 @@ else:
                 'y_values': ['Player Prediction', 'Opponent Prediction'],
                 'y_label': 'Turns to Win',
                 'color': base_colors,
-                'tooltip': "**Predictions** are made by using a combination of **Amber Value**, **Amber Delta**, and **Reap Rate** to estimate each player's **Turns to Win**. It is calculated using the following formula:\n\n*Turns to Win = ((3 - Keys) * Key Cost - Amber) / (Amber Delta + Creatures * Reap Rate)*",
+                'tooltip': "**Predictions** are made by using a combination of **Amber Value**, **Amber Delta**, and **Reap Rate** to estimate each player's **Turns to Win**. It is calculated using the following formula:\n\n*Amber Remaining = Keys Remaining * Key Cost - Amber*\n\n*Amber Generation = Amber Delta + Creatures * Reap Rate*\n\n*Turns to Win = Amber Remaining / Amber Generation*",
             },
             "Creatures": {
                 'y_values': ['Player Creatures', 'Opponent Creatures'],
@@ -875,9 +976,9 @@ else:
         # )
 
         c1.subheader("Player Amber Sources")
-        c1.plotly_chart(player_amber_sources, use_container_width=True)
+        c1.plotly_chart(deck_analysis_dict['player_amber_sources'], use_container_width=True)
         c2.subheader("Opponent Amber Sources")
-        c2.plotly_chart(opponent_amber_sources, use_container_width=True)
+        c2.plotly_chart(deck_analysis_dict['opponent_amber_sources'], use_container_width=True)
 
         if comparison:
             c1.subheader("Player Amber Sources (C)")
@@ -886,9 +987,9 @@ else:
             c2.plotly_chart(compare_data[2], use_container_width=True)
 
         c1.subheader("Player House Calls")
-        c1.image(player_house_calls)
+        c1.image(deck_analysis_dict['player_house_calls'])
         c2.subheader("Opponent House Calls")
-        c2.image(opponent_house_calls)
+        c2.image(deck_analysis_dict['opponent_house_calls'])
 
         if comparison:
             c1.subheader("Player House Calls (C)")
@@ -896,7 +997,7 @@ else:
             c2.subheader("Opponent House Calls (C)")
             c2.plotly_chart(compare_data[4], use_container_width=True)
 
-    with tab_3:
+    with tabs[3]:
         c1, c2 = st.columns(2)
 
         advantage_stats = ['Amber', 'Cards', 'Prediction', 'Creatures', 'Delta', 'Reap Rate', 'Amber Defense', 'Survival Rate']
@@ -909,9 +1010,9 @@ else:
                 col = c2
 
             col.subheader(advantage)
-            col.plotly_chart(advantage_charts[i])
+            col.plotly_chart(deck_analysis_dict['advantage_charts'][i])
 
-    with tab_4:
+    with tabs[4]:
         for card_data in [player_card_data, opponent_card_data]:
             for stat in ['Discarded %', 'Amber %', 'Games P%', 'WR(P)%', 'WR(-P)%', 'Games D%', 'WR(D)%', 'WR(-D)%']:#, 'Survival %']:
                 if stat in card_data.columns:
@@ -922,10 +1023,10 @@ else:
             "Image": st.column_config.ImageColumn(pinned=True, width='small'),
             "Turn": st.column_config.Column(help="The average turn a card is first played"),
             "Played": st.column_config.Column(help="The average number of times a card is played"),
-            "Discarded": st.column_config.Column(help="The average number of times a card is discarded"),
-            "Discarded %": st.column_config.NumberColumn(help="The percentage of times a card is discarded vs played", format='percent'),
+            # "Discarded": st.column_config.Column(help="The average number of times a card is discarded"),
+            # "Discarded %": st.column_config.NumberColumn(help="The percentage of times a card is discarded vs played", format='percent'),
             "Amber": st.column_config.Column(help="The average amount of amber gained from a card"),
-            "Amber %": st.column_config.NumberColumn(help="The percentage of total amber gained from a card", format='percent'),
+            "Amber %": st.column_config.ProgressColumn(help="The percentage of total amber gained from a card", format='percent'),
             "Reaps": st.column_config.Column(help="The average number of times a card reaps"),
             "Icons": st.column_config.Column(help="The average amount of amber icons gained from a card"),
             "Steal": st.column_config.Column(help="The average amount of amber stolen with a card"),
@@ -940,12 +1041,14 @@ else:
 
         }
 
+        card_data_cols = ['Image', 'Card', 'Turn', 'Played', 'Amber', 'Reaps', 'Icons', 'Steal', 'Effects', 'Amber %', 'Games P%', 'WR(P)%', 'WR(-P)%']
+
         st.subheader("Card Data")
         with st.expander(r"$\textsf{\large Player Card Data}$"):
-            st.dataframe(player_card_data, hide_index=True, column_config=df_col_config)
+            st.dataframe(player_card_data[card_data_cols + ['Games D%', 'WR(D)%', 'WR(-D)%']], hide_index=True, column_config=df_col_config)
 
         with st.expander(r"$\textsf{\large Opponent Card Data}$"):
-            st.dataframe(opponent_card_data, hide_index=True, column_config=df_col_config)
+            st.dataframe(opponent_card_data[card_data_cols], hide_index=True, column_config=df_col_config)
 
         if 'expand_all' not in st.session_state:
             st.session_state.expand_all = False

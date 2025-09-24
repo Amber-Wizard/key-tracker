@@ -1,3 +1,5 @@
+import collections
+
 import streamlit as st
 import pandas as pd
 import urllib.error
@@ -7,6 +9,7 @@ import time
 from datetime import datetime, timedelta
 
 import dok_api
+import formatting
 
 set_conversion_dict = {
     'CALL_OF_THE_ARCHONS': ['CotA'],
@@ -60,9 +63,12 @@ def del_database(db_name):
     return result
 
 
-def add_user(username, password, email, tco_name):
+def add_user(username, password, email, tco_name, discord_name=None):
     db = get_database('Users')
-    return db.insert_one({"username": username, "password": password, "email": email, "tco_name": tco_name}).acknowledged
+    user_info_dict = {"username": username, "password": password, "email": email, "tco_name": tco_name}
+    if discord_name:
+        user_info_dict["discord_name"] = discord_name
+    return db.insert_one(user_info_dict).acknowledged
 
 
 def delete_user(username):
@@ -278,18 +284,66 @@ def get_user_alliances(username, aliases=None):
     return df
 
 
+def auto_scan_alliance_games(session_state):
+    alliance_scan_threshold = 0.90
+
+    print(f"Initializing Scan Process for {session_state.name}")
+    alliances_updated = 0
+    alliances = get_user_alliances(session_state.name, session_state.user_info['aliases'])
+
+    alliance_card_dict = {}
+    for alliance_idx, alliance in alliances.iterrows():
+        alliance_card_dict[alliance['alliance']] = [c['cardTitle'] for j in range(3) for c in alliance['data']['deck']['housesAndCards'][j]['cards']]
+
+    for scan_format in 'alliance', 'sealed':
+        print(f"Scanning {scan_format} games")
+        for idx, row in session_state.game_log[scan_format].iterrows():
+            game_id = row['ID']
+            print(f"Checking game [{game_id}]")
+            player_name = row['Player']
+            cards_played = row['Game Log'][player_name]['individual_cards_played'][-1]
+            opponent_name = row['Opponent']
+            opponent_cards_played = row['Game Log'][opponent_name]['individual_cards_played'][-1]
+
+            for cp in [cards_played, opponent_cards_played]:
+                if cp == cards_played and row['Deck'] != '---':
+                    print(f"Deck Skipped")
+                    continue
+                elif cp == opponent_cards_played and row['Opponent Deck'] != '---':
+                    print(f"Deck Skipped")
+                    continue
+                print(f"Cards Played: {cp.keys()}")
+                possible_alliances = {}
+                for k, v in alliance_card_dict.items():
+                    accuracy = 0 if len(cp.keys()) == 0 else len([c for c in cp.keys() if c in v]) / len(cp.keys())
+                    possible_alliances[k] = accuracy
+                most_likely = max(possible_alliances, key=possible_alliances.get)
+                likelihood = possible_alliances[most_likely]
+                print(f"Most Likely: [{most_likely}] ({round(100 * likelihood)})")
+
+                if likelihood > alliance_scan_threshold:
+                    link = alliances.loc[alliances['alliance'] == most_likely, 'link'].iloc[0]
+                    success, message = update_alliance_deck(game_id, most_likely, link, player_deck=cp == cards_played)
+                    if success:
+                        alliances_updated += 1
+                    else:
+                        print(f"{message} [{game_id}]")
+
+    return session_state, alliances_updated
+
+
 def get_user_games(username, aliases=None, trim_lists=False):
     db = get_database('Games')
-    data = db.find({'Player': username})
-    df = to_dataframe(data)
 
+    # Build list of all usernames to query, including aliases
+    usernames = [username]
     if aliases:
-        for alias in aliases:
-            alias_data = db.find({'Player': alias})
-            alias_df = to_dataframe(alias_data)
-            if len(alias_df) > 0:
-                df = pd.concat([df, alias_df], ignore_index=True)
+        usernames += aliases
 
+    cursor = db.find({"Player": {"$in": [[u] for u in usernames]}}).sort("Date", -1)
+    df = to_dataframe(cursor)
+
+    # Function to count turns
     def count_turns(game_log):
         try:
             return len(game_log[0][[k for k in game_log[0].keys() if k != 'player_hand'][0]]['cards_played'])
@@ -299,6 +353,7 @@ def get_user_games(username, aliases=None, trim_lists=False):
     if 'Game Log' in df.columns and len(df) > 0:
         df['Turns'] = df['Game Log'].apply(count_turns)
 
+        # Ensure Date is sortable
         try:
             sorted_df = df.sort_values(by='Date', ascending=False)
         except:
@@ -308,17 +363,20 @@ def get_user_games(username, aliases=None, trim_lists=False):
             except:
                 sorted_df = df
 
+        # Ensure Format column exists and is properly formatted
         if 'Format' in sorted_df.columns:
             sorted_df['Format'] = sorted_df['Format'].apply(lambda x: x if isinstance(x, list) else ['Archon'])
         else:
             sorted_df['Format'] = [['Archon']] * len(sorted_df)
 
+        # Split into format-specific DataFrames
         game_log_dict = {
             'archon': sorted_df[sorted_df['Format'].apply(lambda x: x == ['Archon'])],
             'sealed': sorted_df[sorted_df['Format'].apply(lambda x: x == ['Sealed'])],
             'alliance': sorted_df[sorted_df['Format'].apply(lambda x: x == ['Alliance'])],
         }
 
+        # Optionally trim single-item lists
         if trim_lists:
             for k, v in game_log_dict.items():
                 game_log_dict[k] = v.applymap(lambda x: x[0] if isinstance(x, list) and len(x) == 1 else x)
@@ -373,32 +431,82 @@ def get_dok_cache():
     return db.find()
 
 
+# def get_dok_cache_deck_id(deck_id):
+#     if len(deck_id) == 36:
+#         db = get_database('Dok Data')
+#         dok_data = db.find_one({'ID': deck_id})
+#         if not dok_data:
+#             db = get_database('Alliances')
+#             dok_data = db.find_one({'link': "https://decksofkeyforge.com/alliance-decks/" + deck_id})
+#             if dok_data:
+#                 dok_data['Data'] = dok_data['data']
+#                 del dok_data['data']
+#         if not dok_data:
+#             dok_data = update_dok_data(deck_id)
+#         return dok_data
+#
+#
+# def get_dok_cache_deck_name(deck_name):
+#     db = get_database('Dok Data')
+#     dok_data = db.find_one({'Deck': deck_name})
+#     if not dok_data:
+#         db = get_database('Alliances')
+#         dok_data = db.find_one({'alliance': deck_name})
+#         if dok_data:
+#             dok_data['Data'] = dok_data['data']
+#             del dok_data['data']
+#     if not dok_data:
+#         print(f"No DoK Data Found: {deck_name}")
+#     return dok_data
+
+
 def get_dok_cache_deck_id(deck_id):
-    if len(deck_id) == 36:
-        db = get_database('Dok Data')
-        dok_data = db.find_one({'ID': deck_id})
-        if not dok_data:
-            db = get_database('Alliances')
-            dok_data = db.find_one({'link': "https://decksofkeyforge.com/alliance-decks/" + deck_id})
-            if dok_data:
-                dok_data['Data'] = dok_data['data']
-                del dok_data['data']
-        if not dok_data:
-            dok_data = update_dok_data(deck_id)
-        return dok_data
+    """Get DoK data by deck ID using combined text index."""
+    if len(deck_id) != 36:
+        return None
+
+    db = get_database('Dok Data')
+
+    # Try exact match first (fast with regular or text index)
+    dok_data = db.find_one({'ID': deck_id})
+
+    # If not found, fallback to Alliances collection
+    if not dok_data:
+        db_alliances = get_database('Alliances')
+        dok_data = db_alliances.find_one({
+            '$text': {'$search': deck_id}
+        })
+        if dok_data:
+            dok_data['Data'] = dok_data.pop('data', None)
+
+    # If still not found, update data
+    if not dok_data:
+        dok_data = update_dok_data(deck_id)
+
+    return dok_data
 
 
 def get_dok_cache_deck_name(deck_name):
+    """Get DoK data by deck name using combined text index."""
     db = get_database('Dok Data')
-    dok_data = db.find_one({'Deck': deck_name})
+
+    # Use text search on combined index
+    dok_data = db.find_one({
+        '$text': {'$search': deck_name}
+    })
+
+    # If not found, fallback to Alliances collection
     if not dok_data:
-        db = get_database('Alliances')
-        dok_data = db.find_one({'alliance': deck_name})
+        db_alliances = get_database('Alliances')
+        dok_data = db_alliances.find_one({
+            '$text': {'$search': deck_name}
+        })
         if dok_data:
-            dok_data['Data'] = dok_data['data']
-            del dok_data['data']
+            dok_data['Data'] = dok_data.pop('data', None)
+
     if not dok_data:
         print(f"No DoK Data Found: {deck_name}")
+
     return dok_data
 
 
@@ -439,15 +547,9 @@ def update_dok_data(deck_id):
 
 
 def get_user_decks(username, aliases=None, game_data=None):
-    if aliases:
-        name_list = [username] + aliases
-    else:
-        name_list = [username]
+    name_list = [username] + aliases if aliases else [username]
 
-    if game_data is not None:
-        user_games = game_data
-    else:
-        user_games = get_user_games(username, aliases=aliases)
+    user_games = game_data if game_data is not None else get_user_games(username, aliases=aliases)
 
     if user_games is not None and len(user_games) > 1:
         def process_user_decks(filtered_games):
@@ -457,33 +559,20 @@ def get_user_decks(username, aliases=None, game_data=None):
             if filtered_games.empty:
                 return pd.DataFrame(columns=['Deck', 'Games', 'Deck Link', 'Wins', 'Losses', 'Win-Loss', 'Winrate'])
 
-            games_counts = pd.Series([item[0] for item in filtered_games['Deck']]).value_counts()
+            games_counts = pd.Series([item for item in filtered_games['Deck']]).value_counts()
             user_decks = games_counts.reset_index()
             user_decks.columns = ['Deck', 'Games']
 
-            deck_link_mapping = {row['Deck'][0]: row['Deck Link'][0] for _, row in filtered_games.iterrows()}
+            deck_link_mapping = {row['Deck']: row['Deck Link'] for _, row in filtered_games.iterrows()}
             user_decks['Deck Link'] = user_decks['Deck'].map(deck_link_mapping)
-            # user_decks['Deck'] = None
-            # user_decks['SAS'] = None
-            # user_decks['Set'] = None
-            # for idx, row in user_decks.iterrows():
-                # deck_id = row['Deck Link'].split('/')[-1]
-                # dok_data = get_dok_cache_deck_id(deck_id)
-                # user_decks.at[idx, 'Deck'] = dok_data['Deck']
-                # user_decks.at[idx, 'SAS'] = dok_data['Data']['deck']['sasRating']
-                # user_decks.at[idx, 'Set'] = set_conversion_dict[dok_data['Data']['deck']['expansion']]
-                # elo_data = get_elo(username, dok_data['Deck'])
 
             wins, losses, wl, winrates = [], [], [], []
             for idx, row in user_decks.iterrows():
-                deck_games = filtered_games[
-                    (filtered_games['Deck'].apply(lambda x: x[0]) == row['Deck']) &
-                    (filtered_games['Player'].apply(lambda x: x[0] in name_list))
-                    ]
-                deck_wins = len(deck_games[deck_games['Winner'].apply(lambda x: x[0] in name_list)])
+                deck_games = filtered_games[(filtered_games['Deck'] == row['Deck']) & (filtered_games['Player'].apply(lambda x: x in name_list))]
+                deck_wins = len(deck_games[deck_games['Winner'].apply(lambda x: x in name_list)])
                 deck_losses = len(deck_games) - deck_wins
 
-                winrate = round(100 * deck_wins / len(deck_games)) if len(deck_games) > 0 else None
+                winrate = round(deck_wins / len(deck_games), 2) if len(deck_games) > 0 else None
                 wins.append(deck_wins)
                 losses.append(deck_losses)
                 wl.append(f"{deck_wins}-{deck_losses}")
@@ -494,8 +583,8 @@ def get_user_decks(username, aliases=None, game_data=None):
             user_decks['Win-Loss'] = wl
             user_decks['Winrate'] = winrates
 
-            user_decks = user_decks[user_decks['Games'] >= 2]
-            user_decks['Deck'] = user_decks['Deck'].apply(lambda x: [x])
+            user_decks = user_decks[user_decks['Games'] >= 5]
+            # user_decks['Deck'] = user_decks['Deck'].apply(lambda x: [x])
 
             return user_decks
 
@@ -507,10 +596,10 @@ def get_user_decks(username, aliases=None, game_data=None):
         return None
 
 
-def update_elo(player, deck, deck_data, game_format):
+def update_elo(player, deck, deck_link, deck_data, game_format):
     db = get_database('ELO')
     query = {'player': player, 'deck': deck}
-    update_data = {'$set': {'player': player, 'format': game_format, 'deck': deck, 'score': deck_data['score'], 'games': deck_data['games'], 'wins': deck_data['wins']}}
+    update_data = {'$set': {'player': player, 'format': game_format, 'deck': deck, 'deck_link': deck_link, 'score': deck_data['score'], 'games': deck_data['games'], 'wins': deck_data['wins']}}
     inserted_result = db.update_one(query, update_data, upsert=True)
 
     return inserted_result
@@ -543,12 +632,13 @@ def get_elo(player, deck, game_format):
     data = db.find_one(query)
 
     if not data:
-        update_result = update_elo(player, deck, {'score': 1500, 'games': 0, 'wins': 0}, game_format)
+        update_result = update_elo(player, deck, '', {'score': 1500, 'games': 0, 'wins': 0}, game_format)
 
         data = {
             '_id': update_result.upserted_id,  # This will contain the ID of the newly created document
             'player': player,
             'deck': deck,
+            'deck_link': '',
             'format': game_format,
             'score': 1500,
         }
@@ -564,10 +654,7 @@ def get_elo_by_id(share_id):
     query = {'_id': ObjectId(share_id)}
     data = db.find_one(query)
 
-    if data:
-        return data
-    else:
-        return None
+    return data
 
 
 def calculate_elo(starting_value=1500, k_value=30):
@@ -636,12 +723,19 @@ def calculate_elo(starting_value=1500, k_value=30):
             for f in ['Archon', 'Alliance', 'Sealed']
         }
 
+    deck_link_dict = collections.defaultdict(str)
+
     for idx, game in games.iterrows():
         player = game['Player']
         opponent = game['Opponent']
         p_deck = game['Deck']
         op_deck = game['Opponent Deck']
         game_format = game['Format']
+
+        p_deck_link = game['Deck Link']
+        op_deck_link = game['Opponent Deck Link']
+        deck_link_dict[p_deck] = p_deck_link
+        deck_link_dict[op_deck] = op_deck_link
 
         p1_expected = 1 / (1 + 10**((opponent_elo_dict[opponent][game_format]['score'] - player_elo_dict[player][game_format]['score'])/400))
         p2_expected = 1 - p1_expected
@@ -706,7 +800,7 @@ def calculate_elo(starting_value=1500, k_value=30):
             print(f"{p}: {player_elo_dict[p][game_format]['score']} ({player_elo_dict[p][game_format]['games']} games)")
             for d in player_elo_dict[p][game_format]['decks'].keys():
                 print(f"    {d}: {player_elo_dict[p][game_format]['decks'][d]}")
-                update_elo(p, d, player_elo_dict[p][game_format]['decks'][d], game_format)
+                update_elo(p, d, deck_link_dict[d], player_elo_dict[p][game_format]['decks'][d], game_format)
             print('')
 
 
@@ -742,22 +836,13 @@ def check_featured(gid):
 def get_featured_game_log():
     featured_games = get_featured_games()
     for idx, row in featured_games.iterrows():
-        game_id = row['ID'][0]  # Extract the ID from the list
+        game_id = row['ID']  # Extract the ID from the list
         game_data = get_game(game_id)
 
         if game_data:
             featured_games.at[idx, 'Date'] = game_data.get('Date', None)
             for attribute in ['Player', 'Opponent', 'Winner', 'Deck', 'Opponent Deck']:
                 featured_games.at[idx, attribute] = game_data.get(attribute, [''])
-            # deck_id = game_data.get('Deck Link', [''])[0].split('/')[-1]
-            # dok_data = get_dok_cache_deck_id(deck_id)
-            # featured_games.at[idx, 'SAS'] = dok_data['Data']['deck']['sasRating']
-            # featured_games.at[idx, 'Set'] = set_conversion_dict[dok_data['Data']['deck']['expansion']][0]
-
-            # op_deck_id = game_data.get('Opponent Deck Link', [''])[0].split('/')[-1]
-            # op_dok_data = get_dok_cache_deck_id(op_deck_id)
-            # featured_games.at[idx, 'Op. SAS'] = op_dok_data['Data']['deck']['sasRating']
-            # featured_games.at[idx, 'Op. Set'] = set_conversion_dict[op_dok_data['Data']['deck']['expansion']][0]
 
     if 'Date' in featured_games.columns:
         featured_games = featured_games.dropna(subset=['Date'])
@@ -787,23 +872,28 @@ def like_game(gid, user):
     return True, "Liked game"
 
 
-def get_all_recent_games(days=30, data_share=True):
+def get_all_recent_games(days=30, games=None, data_share=True):
     collection = get_database('Games')
 
-    start_date = datetime.now() - timedelta(days=days)
+    if games is not None:
+        # Get the most recent X games
+        cursor = collection.find().sort("Date", -1).limit(games)
+    else:
+        # Get all games within the last 'days'
+        start_date = datetime.now() - timedelta(days=days)
+        cursor = collection.find({"Date": {"$gte": start_date}}).sort("Date", -1)
 
-    recent_games = collection.find({"Date": {"$gte": start_date}})
+    recent_games_df = to_dataframe(cursor)
 
-    recent_games_df = to_dataframe(recent_games)
-    # recent_games_df = recent_games_df.loc[recent_games_df['Format'].str[0] == 'Archon']
     if data_share:
+        # Exclude users with private data
         private_data_users = list(get_private_data_users())
         private_data_username_list = [p['tco_name'] for p in private_data_users]
         for u in private_data_users:
             if 'aliases' in u:
                 private_data_username_list += u['aliases']
-        private_data_username_list = [[p] for p in private_data_username_list]
 
+        # Exclude private users from DataFrame
         recent_games_df = recent_games_df[~recent_games_df['Player'].isin(private_data_username_list)]
 
     return recent_games_df

@@ -123,7 +123,7 @@ else:
 lb_type = c1.selectbox('', options=lb_type_options)
 sort_by = c3.selectbox('Sort', options=['Score', 'WR%', 'Games'])
 sort_order = c4.selectbox('Order', options=['Desc', 'Asc'])
-min_games = c5.selectbox('Min. Games', options=[5, 10, 25, 50, 100])
+min_games = c5.selectbox('Min. Games', options=[10, 25, 50, 100])
 
 if lb_type == 'Decks':
     if 'deck_scores' not in st.session_state:
@@ -187,7 +187,7 @@ if lb_type == 'Players':
 
 
 else:
-    cols = st.columns([0.8, 1, 1, 0.8, 7, 2])
+    cols = st.columns([0.6, 1, 1, 1, 7, 3, 1])
     cols[1].markdown(f'<b class="plain-font">Score</b>', unsafe_allow_html=True)
     cols[2].markdown(f'<b class="plain-font"> WR%</b>', unsafe_allow_html=True)
     cols[3].markdown(f'<b class="plain-font">Games</b>', unsafe_allow_html=True)
@@ -196,7 +196,7 @@ else:
     for item in st.session_state.elo_scores:
         if item['deck'] != '-Error-' and item['deck'] != '---' and type(item['deck']) == str and 'games' in item and item['games'] > 0:
             with st.container(border=True):
-                cols = st.columns([0.8, 1, 1, 0.8, 7, 2])
+                cols = st.columns([0.6, 1, 1, 1, 7, 3, 1])
 
                 cols[0].markdown(f'<b class="rank-font">{last_rank}.</b>', unsafe_allow_html=True)
                 cols[1].markdown(f'<b class="plain-font">{item["score"]}</b>', unsafe_allow_html=True)
@@ -210,11 +210,13 @@ else:
                 if 'name' in st.session_state and (st.session_state.name == item['player'] or st.session_state.name == 'master'):
                     cols[4].markdown(f'<b class="plain-font">{item["deck"]}</b>', unsafe_allow_html=True)
                     cols[5].markdown(f'<b class="hero-font">{item["player"]}</b>', unsafe_allow_html=True)
+                    cols[6].link_button("ℹ️", url=item['deck_link'])
                 elif 'show_decks' in st.session_state.user_dict[item['player']] and st.session_state.user_dict[item['player']]['show_decks']:
                     cols[4].markdown(f'<b class="plain-font">{item["deck"]}</b>', unsafe_allow_html=True)
                     cols[5].markdown(f'<b class="villain-font">{item["player"]}</b>', unsafe_allow_html=True)
+                    cols[6].link_button("ℹ️", url=item['deck_link'])
                 else:
                     cols[4].markdown(f'<b class="rank-font">--------------</b>', unsafe_allow_html=True)
-                    cols[5].markdown(f'<b class="rank-font">-----</b>', unsafe_allow_html=True)
+                    cols[5].markdown(f'<b class="rank-font">-------</b>', unsafe_allow_html=True)
 
             last_rank += 1

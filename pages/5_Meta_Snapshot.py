@@ -1,15 +1,17 @@
-
 import streamlit as st
 import pandas as pd
+
+from collections import defaultdict
 
 import database
 import dok_api
 import graphing
-from Home import default_settings
+import formatting
+import calcs
 
 try:
     st.set_page_config(
-        page_title="Player Page - KeyTracker",
+        page_title="Meta Snapshot - KeyTracker",
         page_icon="🔑",
         layout="wide",
         initial_sidebar_state="collapsed"
@@ -114,7 +116,7 @@ st.markdown("""
     color: #838383 !important;
 }
 .amber-font {
-    font-size: 22px !important;
+    font-size: 26px !important;
     color: #f8df65 !important;
 }
 </style>
@@ -131,7 +133,7 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 def get_meta_games():
     with st.spinner('Getting games...'):
-        recent_games = database.get_all_recent_games()
+        recent_games = database.get_all_recent_games(games=500)
         recent_games = recent_games[recent_games['Format'].apply(lambda x: 'Archon' in x)]
         st.session_state.recent_games = recent_games
 
@@ -152,11 +154,17 @@ def process_meta_games():
         dok_data_dict = {}
         set_data_dict = {k: 0 for k in [ls[0] for ls in database.set_conversion_dict.values()]}
         set_win_dict = {k: {'wins': 0, 'losses': 0} for k in [ls[0] for ls in database.set_conversion_dict.values()]}
+        set_key_diff_dict = {k: {'key_diff': 0, 'games': 0} for k in [ls[0] for ls in database.set_conversion_dict.values()]}
         set_vs_set_dict = {k: {ik: {'wins': 0, 'losses': 0} for ik in [ils[0] for ils in database.set_conversion_dict.values()] if ik != k} for k in [ls[0] for ls in database.set_conversion_dict.values()]}
         house_data_dict = {k.title() if k != 'staralliance' else 'StarAlliance': 0 for k in graphing.house_colors.keys()}
         house_win_dict = {k.title() if k != 'staralliance' else 'StarAlliance': 0 for k in graphing.house_colors.keys()}
-        cards_played_dict = {}
-        card_win_dict = {}
+        house_key_diff_dict = {k.title() if k != 'staralliance' else 'StarAlliance': {'key_diff': 0, 'games': 0} for k in graphing.house_colors.keys()}
+        cards_played_dict = defaultdict(int)
+        card_win_dict = defaultdict(int)
+        copies_played_dict = defaultdict(int)
+        amber_gained_dict = defaultdict(int)
+        played_with_dict = defaultdict(lambda: defaultdict(int))
+        played_with_win_dict = defaultdict(lambda: defaultdict(int))
 
         for idx, row in recent_games.iterrows():
             game_log = row['Game Log'][0]
@@ -170,31 +178,58 @@ def process_meta_games():
             opponent_cards_played = opponent_data['individual_cards_played']
             if opponent_cards_played:
                 for card in opponent_cards_played[-1].keys():
-                    if card in cards_played_dict:
-                        cards_played_dict[card] += 1
-                    else:
-                        cards_played_dict[card] = 1
+                    cards_played_dict[card] += 1
+                    copies_played_dict[card] += opponent_cards_played[-1][card]
                     if opponent_won:
-                        if card in card_win_dict:
-                            card_win_dict[card] += 1
-                        else:
-                            card_win_dict[card] = 1
+                        card_win_dict[card] += 1
+                        for c in opponent_cards_played[-1].keys():
+                            if c != card:
+                                played_with_win_dict[card][c] += 1
+
+                    for c in opponent_cards_played[-1].keys():
+                        if c != card:
+                            played_with_dict[card][c] += 1
 
             player_cards_played = player_data['individual_cards_played']
             if player_cards_played:
                 for card in player_cards_played[-1].keys():
-                    if card in cards_played_dict:
-                        cards_played_dict[card] += 1
-                    else:
-                        cards_played_dict[card] = 1
+                    cards_played_dict[card] += 1
+                    copies_played_dict[card] += player_cards_played[-1][card]
                     if not opponent_won:
-                        if card in card_win_dict:
-                            card_win_dict[card] += 1
-                        else:
-                            card_win_dict[card] = 1
+                        card_win_dict[card] += 1
+                        for c in player_cards_played[-1].keys():
+                            if c != card:
+                                played_with_win_dict[card][c] += 1
+
+                    for c in player_cards_played[-1].keys():
+                        if c != card:
+                            played_with_dict[card][c] += 1
+
+            for amber_type in ['individual_amber_icons', 'individual_amber_reaped', 'individual_amber_effect', 'individual_steal']:
+                opponent_card_amber = opponent_data[amber_type]
+                if opponent_card_amber:
+                    for card in opponent_card_amber[-1].keys():
+                        amber_gained_dict[card] += opponent_card_amber[-1][card]
+
+                player_card_amber = player_data[amber_type]
+                if player_card_amber:
+                    for card in player_card_amber[-1].keys():
+                        amber_gained_dict[card] += player_card_amber[-1][card]
 
             player_set, opponent_set = None, None
             for i, deck_id in enumerate([row['Opponent Deck Link'][0].split('/')[-1], row['Deck Link'][0].split('/')[-1]]):
+                game_log = row['Game Log'][0]
+                opponent_data = game_log[row['Opponent'][0]]
+                player_data = game_log[row['Player'][0]]
+                try:
+                    player_keys = player_data['keys'][-1]
+                    opponent_keys = opponent_data['keys'][-1]
+                except:
+                    print(player_data)
+                    print(opponent_data)
+                    player_keys = None
+                    opponent_keys = None
+
                 dok_data = None
                 if deck_id and deck_id not in dok_data_dict:
                     dok_data = database.get_dok_cache_deck_id(deck_id)
@@ -230,54 +265,42 @@ def process_meta_games():
                             else:
                                 house_win_dict[house] = 1
 
+                        if player_keys is not None and opponent_keys is not None:
+                            house_key_diff_dict[house]['games'] += 1
+                            house_key_diff_dict[house]['key_diff'] += opponent_keys - player_keys
+
             if player_set != opponent_set:
                 if opponent_set:
                     result = 'wins' if opponent_won else 'losses'
                     set_win_dict.setdefault(opponent_set, {'wins': 0, 'losses': 0})[result] += 1
-                    if player_set and opponent_set != player_set:
-                        set_vs_set_dict[opponent_set].setdefault(player_set, {'wins': 0, 'losses': 0})[result] += 1
+                    set_vs_set_dict[opponent_set].setdefault(player_set, {'wins': 0, 'losses': 0})[result] += 1
+                    if player_keys is not None and opponent_keys is not None:
+                        set_key_diff_dict[opponent_set]['games'] += 1
+                        set_key_diff_dict[opponent_set]['key_diff'] += opponent_keys - player_keys
 
                 if player_set:
                     result = 'losses' if opponent_won else 'wins'
                     set_win_dict.setdefault(player_set, {'wins': 0, 'losses': 0})[result] += 1
-                    if player_set != opponent_set:
-                        set_vs_set_dict[player_set].setdefault(opponent_set, {'wins': 0, 'losses': 0})[result] += 1
-                # if opponent_won:
-                #     if opponent_set:
-                #         if opponent_set in set_win_dict:
-                #             set_win_dict[opponent_set]['wins'] += 1
-                #         else:
-                #             set_win_dict[opponent_set]['wins'] = 1
-                #     if player_set:
-                #         if player_set in set_win_dict:
-                #             set_win_dict[player_set]['losses'] += 1
-                #         else:
-                #             set_win_dict[player_set]['losses'] = 1
-                # else:
-                #     if opponent_set:
-                #         if opponent_set in set_win_dict:
-                #             set_win_dict[opponent_set]['losses'] += 1
-                #         else:
-                #             set_win_dict[opponent_set]['losses'] = 1
-                #     if player_set:
-                #         if player_set in set_win_dict:
-                #             set_win_dict[player_set]['wins'] += 1
-                #         else:
-                #             set_win_dict[player_set]['wins'] = 1
+                    set_vs_set_dict[player_set].setdefault(opponent_set, {'wins': 0, 'losses': 0})[result] += 1
+                    if player_keys is not None and opponent_keys is not None:
+                        set_key_diff_dict[player_set]['games'] += 1
+                        set_key_diff_dict[player_set]['key_diff'] += player_keys - opponent_keys
 
         cards_played_df = pd.DataFrame(list(cards_played_dict.items()), columns=['Card', 'Played'])
+        cards_played_df['Copies'] = cards_played_df['Card'].map(copies_played_dict)
+        cards_played_df['Amber'] = cards_played_df['Card'].map(amber_gained_dict)
         rarity_val_dict = {
             'Common': 1,
-            'Uncommon': 2.7,
-            'Rare': 9,
-            'Special': 9,
+            'Uncommon': 1.35,
+            'Rare': 3.5,
+            'Special': 3.5,
         }
         for idx, row in cards_played_df.iterrows():
             rarity = dok_api.get_card_rarity(row['Card'])
             if not rarity:
                 print(row['Card'])
-        cards_played_df['Weighted_Played'] = cards_played_df.apply(lambda r: r['Played'] * rarity_val_dict[dok_api.get_card_rarity(r['Card'])], axis=1)
-
+        cards_played_df['Rarity Adjustment'] = cards_played_df.apply(lambda r: rarity_val_dict[dok_api.get_card_rarity(r['Card'])], axis=1)
+        cards_played_df['Played Adjusted'] = cards_played_df['Played'] * cards_played_df['Rarity Adjustment']
         cards_played_df = cards_played_df.sort_values(by='Played', ascending=False)
 
         st.session_state.meta_snapshot['games_played_day'] = games_played_day
@@ -285,28 +308,16 @@ def process_meta_games():
         st.session_state.meta_snapshot['set_data_dict'] = set_data_dict
         st.session_state.meta_snapshot['set_win_dict'] = set_win_dict
         st.session_state.meta_snapshot['set_vs_set_dict'] = set_vs_set_dict
+        st.session_state.meta_snapshot['set_key_diff_dict'] = set_key_diff_dict
         st.session_state.meta_snapshot['house_data_dict'] = house_data_dict
         st.session_state.meta_snapshot['house_win_dict'] = house_win_dict
+        st.session_state.meta_snapshot['house_key_diff_dict'] = house_key_diff_dict
         st.session_state.meta_snapshot['cards_played_df'] = cards_played_df
         st.session_state.meta_snapshot['card_win_dict'] = card_win_dict
+        st.session_state.meta_snapshot['played_with_dict'] = played_with_dict
+        st.session_state.meta_snapshot['played_with_win_dict'] = played_with_win_dict
 
         database.log_meta_sets(set_data_dict)
-
-if 'recent_games' not in st.session_state:
-    get_meta_games()
-
-if 'meta_snapshot' not in st.session_state:
-    process_meta_games()
-
-games_played_day = st.session_state.meta_snapshot['games_played_day']
-games_played = st.session_state.meta_snapshot['games_played']
-set_data_dict = st.session_state.meta_snapshot['set_data_dict']
-set_win_dict = st.session_state.meta_snapshot['set_win_dict']
-set_vs_set_dict = st.session_state.meta_snapshot['set_vs_set_dict']
-house_data_dict = st.session_state.meta_snapshot['house_data_dict']
-house_win_dict = st.session_state.meta_snapshot['house_win_dict']
-cards_played_df = st.session_state.meta_snapshot['cards_played_df']
-card_win_dict = st.session_state.meta_snapshot['card_win_dict']
 
 
 c1, c2, c3, c4 = st.columns([22, 1, 1, 1], vertical_alignment='bottom')
@@ -322,110 +333,143 @@ if refresh_data:
     get_meta_games()
     process_meta_games()
 
+if 'recent_games' not in st.session_state:
+    get_meta_games()
+
+if 'meta_snapshot' not in st.session_state:
+    process_meta_games()
+
+games_played_day = st.session_state.meta_snapshot['games_played_day']
+games_played = st.session_state.meta_snapshot['games_played']
+set_data_dict = st.session_state.meta_snapshot['set_data_dict']
+set_win_dict = st.session_state.meta_snapshot['set_win_dict']
+set_vs_set_dict = st.session_state.meta_snapshot['set_vs_set_dict']
+set_key_diff_dict = st.session_state.meta_snapshot['set_key_diff_dict']
+house_data_dict = st.session_state.meta_snapshot['house_data_dict']
+house_win_dict = st.session_state.meta_snapshot['house_win_dict']
+house_key_diff_dict = st.session_state.meta_snapshot['house_key_diff_dict']
+cards_played_df = st.session_state.meta_snapshot['cards_played_df']
+card_win_dict = st.session_state.meta_snapshot['card_win_dict']
+played_with_dict = st.session_state.meta_snapshot['played_with_dict']
+played_with_win_dict = st.session_state.meta_snapshot['played_with_win_dict']
+
 st.write('')
 
 activity_graph = graphing.activity_graph(games_played_day)
-
 st.subheader('Games Logged')
 with st.container(border=True):
     st.plotly_chart(activity_graph, use_container_width=True)
 
 # Make Set Graph
-set_graph_dict = {k: round((100 * v / games_played) / 2) for k, v in set_data_dict.items()}
-set_graph = graphing.set_meta_graph(set_graph_dict)
+set_play_graph_dict = {k: round(calcs.calculate_winrate(v, games_played, exception=0) / 2) for k, v in set_data_dict.items()}
+set_play_graph = graphing.set_meta_graph(set_play_graph_dict)
+set_wr_graph_dict = {h: calcs.calculate_winrate(set_win_dict[h]['wins'], set_win_dict[h]['wins'] + set_win_dict[h]['losses'], exception=0) for h in set_data_dict}
+set_wr_graph = graphing.set_meta_graph(set_wr_graph_dict, winrate=True)
+set_key_diff_graph_dict = {h: calcs.calculate_winrate(set_key_diff_dict[h]['key_diff'], set_key_diff_dict[h]['games'], exception=0, scale=False) for h in set_data_dict}
+set_key_diff_graph = graphing.set_meta_graph(set_key_diff_graph_dict)
 
 st.subheader('Sets Played')
 with st.container(border=True):
-    st.plotly_chart(set_graph, use_container_width=True)
+    tab_1, tab_2, tab_3 = st.tabs(['Play Rate', 'Win Rate', 'Key Diff'])
+    with tab_1:
+        st.plotly_chart(set_play_graph, use_container_width=True)
+    with tab_2:
+        st.plotly_chart(set_wr_graph, use_container_width=True)
+    with tab_3:
+        st.plotly_chart(set_key_diff_graph, use_container_width=True)
 
-st.subheader('Set Winrates')
-with st.container(border=True):
-    cols = st.columns([0.4] + [1 for _ in range(len(set_data_dict))], vertical_alignment='top')
-    for i, h in enumerate(set_data_dict.keys()):
-        i = i+1
-        cols[i].markdown(f'<b class="plain-font">{h}</b>', unsafe_allow_html=True)
-        if set_data_dict[h] != 0:
-            winrate = round(100 * set_win_dict[h]['wins'] / (set_win_dict[h]['wins'] + set_win_dict[h]['losses']))
-        else:
-            winrate = 0
-
-        if winrate >= 50:
-            cols[i].markdown(f'<b class="hero-italic-font">{winrate}%</b>', unsafe_allow_html=True)
-        else:
-            cols[i].markdown(f'<b class="villain-italic-font">{winrate}%</b>', unsafe_allow_html=True)
-
-# flattened_data = []
-# st.write(set_vs_set_dict)
-# for k, subdict in set_vs_set_dict.items():
-#     for ik, results in subdict.items():
-#         st.write(k, ik, results)
-#         if results['wins'] + results['losses'] > 0:
-#             set_vs_set_dict[k][ik] = results['wins'] / (results['wins'] + results['losses'])
-#         else:
-#             set_vs_set_dict[k][ik] = None
-
-# set_wr_df = pd.DataFrame.from_dict(set_vs_set_dict)
-#
-# for col in set_wr_df.columns:
-#     set_wr_df[col] *= 100
-#
-# st.dataframe(set_wr_df.transpose())
 
 # Make House Graph
-house_graph_dict = {k: round((100 * v / games_played) / 2) for k, v in house_data_dict.items()}
-house_graph = graphing.house_meta_graph(house_graph_dict)
+house_play_graph_dict = {k: round(calcs.calculate_winrate(v, games_played, exception=0) / 2) for k, v in house_data_dict.items()}
+house_play_graph = graphing.house_meta_graph(house_play_graph_dict)
+house_wr_graph_dict = {h: calcs.calculate_winrate(house_win_dict[h], v, exception=0) for h, v in house_data_dict.items()}
+house_wr_graph = graphing.house_meta_graph(house_wr_graph_dict, winrate=True)
+house_key_diff_graph_dict = {h: calcs.calculate_winrate(house_key_diff_dict[h]['key_diff'], house_key_diff_dict[h]['games'], exception=0, scale=False) for h in house_data_dict}
+house_key_diff_graph = graphing.house_meta_graph(house_key_diff_graph_dict)
 
 st.subheader('Houses Played')
 with st.container(border=True):
-    st.plotly_chart(house_graph, use_container_width=True)
+    tab_1, tab_2, tab_3 = st.tabs(['Play Rate', 'Win Rate', 'Key Diff'])
+    with tab_1:
+        st.plotly_chart(house_play_graph, use_container_width=True)
+    with tab_2:
+        st.plotly_chart(house_wr_graph, use_container_width=True)
+    with tab_3:
+        st.plotly_chart(house_key_diff_graph, use_container_width=True)
 
-st.subheader('House Winrates')
-with st.container(border=True):
-    cols = st.columns([0.3] + [1 for _ in range(len(house_data_dict))], vertical_alignment='top')
-    for i, h in enumerate(house_data_dict.keys()):
-        i = i+1
-        cols[i].image(graphing.house_dict[h]['Image'])
-        if house_data_dict[h] != 0:
-            winrate = round(100 * house_win_dict[h] / house_data_dict[h])
-        else:
-            winrate = 0
-        if winrate >= 50:
-            cols[i].markdown(f'<b class="hero-italic-font"> {winrate}%</b>', unsafe_allow_html=True)
-        else:
-            cols[i].markdown(f'<b class="villain-italic-font"> {winrate}%</b>', unsafe_allow_html=True)
+mc = st.columns([4.5, 1])
+mc[0].subheader('Cards Played')
 
-st.subheader('Cards Played')
-with st.container(border=True):
-    trimmed_card_df = cards_played_df.head(20)
+cards_played_df = cards_played_df.sort_values(by='Played', ascending=False)
 
-    card_cols = st.columns(10)
-    for j, (idx, row) in enumerate(trimmed_card_df.iterrows()):
-        i = j
-        if j > 9:
-            i = j-10
+trimmed_card_df = cards_played_df.head(50)
 
-        card_cols[i].image(dok_api.get_card_image(row['Card']))
+for i, (idx, row) in enumerate(trimmed_card_df.iterrows()):
+    with st.container(border=True):
+        container_cols = st.columns([2, 3])
+        with container_cols[0].container():
+            st.subheader(f"{i + 1}. {row['Card']}")
+            card_cols = st.columns([0.75, 1.5] + [0.1, 1.5, 1, 0.1], vertical_alignment='top')
+            card_cols[1].image(dok_api.get_card_image(row['Card']))
 
-        frequency = round((100 * row['Played'] / games_played) / 2)
-        if frequency == 100:
-            frequency_string = f"  {frequency}%"
-        elif frequency < 10:
-            frequency_string = f"    {frequency}%"
-        else:
-            frequency_string = f"   {frequency}%"
-        card_cols[i].markdown(f'<b class="plain-italic-font">{frequency_string}</b>', unsafe_allow_html=True)
+            frequency = round((100 * row['Played'] / games_played) / 2)
 
-        winrate = round(100 * card_win_dict[row['Card']] / row['Played'])
-        if winrate == 100:
-            winrate_string = f"  {winrate}%"
-        elif winrate < 10:
-            winrate_string = f"    {winrate}%"
-        else:
-            winrate_string = f"   {winrate}%"
-        if winrate >= 50:
-            card_cols[i].markdown(f'<b class="hero-italic-font">{winrate_string}</b>', unsafe_allow_html=True)
-        else:
-            card_cols[i].markdown(f'<b class="villain-italic-font">{winrate_string}</b>', unsafe_allow_html=True)
+            card_cols[3].markdown(f'<b class="plain-font">% Games: </b>', unsafe_allow_html=True)
+            card_cols[4].markdown(f'<b class="plain-italic-font">{formatting.transform_pct_string(frequency, extra_padding=2)}</b>', unsafe_allow_html=True)
+
+            copies = round((row['Copies'] / row['Played']), 1)
+
+            card_cols[3].markdown(f'<b class="plain-font"># Played: </b>', unsafe_allow_html=True)
+            card_cols[4].markdown(f'<b class="plain-italic-font">   {copies}</b>', unsafe_allow_html=True)
+
+            wins = card_win_dict[row['Card']]
+            games = row['Played']
+            winrate, font_style = calcs.calculate_winrate(wins, games, include_font=True)
+
+            card_cols[3].markdown(f'<b class="plain-font">Winrate: </b>', unsafe_allow_html=True)
+            card_cols[4].markdown(f'<b class="{font_style}">{formatting.transform_pct_string(winrate, extra_padding=2)}</b>', unsafe_allow_html=True)
+
+            card_amber = round(row['Amber'] / row['Copies'], 1) if row['Copies'] != 0 else 0
+
+            card_cols[3].markdown(f'<b class="plain-font">Amber: </b>', unsafe_allow_html=True)
+            card_cols[4].markdown(f'<b class="amber-font">   {card_amber}</b>', unsafe_allow_html=True)
+
+        with container_cols[1].container():
+            card_cols = st.columns([1.25] + [0.75 for _ in range(2)])
+            played_with_card = played_with_dict[row['Card']]
+            played_with_card_win = played_with_win_dict[row['Card']]
+
+            combo_score_dict = defaultdict(float)
+            for k, v in played_with_card.items():
+                if k in played_with_card_win:
+                    combo_winrate, _ = calcs.calculate_winrate(played_with_card_win[k], v, include_font=True)
+                    combo_play_rate = v / row['Played']
+                    combo_score = combo_winrate * combo_play_rate**2
+                    combo_score_dict[k] = combo_score
+
+            combo_cards_shown = 7
+
+            most_played_with = sorted(combo_score_dict, key=combo_score_dict.get, reverse=True)
+            most_played_with = most_played_with[:combo_cards_shown]
+            most_played_with = sorted(most_played_with, key=played_with_card.get, reverse=True)
+
+            card_cols[0].markdown(f'<b class="plain-font">Played With</b>', unsafe_allow_html=True)
+
+            card_cols = st.columns([0.75 for _ in range(combo_cards_shown)], vertical_alignment='bottom')
+
+            for col_idx in range(combo_cards_shown):
+                card_name = most_played_with[col_idx]
+
+                appearance_rate = round(100 * played_with_dict[row['Card']][card_name] / row['Played'])
+                card_cols[col_idx].image(dok_api.get_card_image(card_name))
+                card_cols[col_idx].markdown(f'<b class="plain-italic-font">{formatting.transform_pct_string(appearance_rate, extra_padding=1)}</b>', unsafe_allow_html=True)
+
+                wins = played_with_win_dict[row['Card']][card_name]
+                games = played_with_dict[row['Card']][card_name]
+                winrate, font_style = calcs.calculate_winrate(wins, games, include_font=True)
+
+                card_cols[col_idx].markdown(f'<b class="{font_style}">{formatting.transform_pct_string(winrate, extra_padding=1)}</b>', unsafe_allow_html=True)
+
 
 
 

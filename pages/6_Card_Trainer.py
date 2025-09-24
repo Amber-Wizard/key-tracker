@@ -8,7 +8,6 @@ import ast
 
 import database
 from graphing import house_dict, set_dict
-from Home import default_settings
 from dok_api import card_df
 
 
@@ -152,6 +151,9 @@ def assign_card():
     card_name = card_row['cardTitle']
     card_type = card_row['cardType']
     card_houses = ast.literal_eval(card_row['houses'])
+    if 'house_selections' in st.session_state:
+        card_houses = [h for h in card_houses if h in st.session_state['house_selections']]
+    selected_house = random.choice(card_houses)
 
     # Remove the card itself
     filtered_df = filtered_df[filtered_df['cardTitle'] != card_name]
@@ -163,9 +165,9 @@ def assign_card():
         type_df = filtered_df
 
     # Filter to only cards of the same house (if possible)
-    h_pattern = '|'.join(card_houses)
+    # h_pattern = '|'.join(card_houses)
 
-    match_df = type_df[type_df['houses'].str.contains(h_pattern, case=False, na=False)]
+    match_df = type_df[type_df['houses'].str.contains(selected_house, case=False, na=False)]
 
     if len(match_df) < 4:
         match_df = type_df
@@ -192,6 +194,9 @@ def assign_card():
         st.session_state.revealed = False
         st.session_state.card_row = card_row
 
+if 'settings' not in st.session_state:
+    st.session_state = states.update_settings(st.session_state)
+
 with st.expander('Settings'):
     set_list = ['All'] + list(set_dict.keys())
     set_selections = st.multiselect('Sets', set_list, default='All')
@@ -216,6 +221,7 @@ if st.button('Start'):
     if house_selections and 'All' not in house_selections:
         pattern = "|".join(house_selections)
         filtered_card_df = filtered_card_df[filtered_card_df['expansions'].str.contains(pattern)]
+        st.session_state.house_selections = house_selections
 
     if card_type_selections and 'All' not in card_type_selections:
         filtered_card_df = filtered_card_df.loc[filtered_card_df['cardType'].isin(card_type_selections)]
