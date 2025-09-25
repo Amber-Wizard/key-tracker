@@ -39,7 +39,6 @@ st.markdown("""
 
 
 # Load User Data
-@st.cache_data
 def get_user_info():
     st.session_state.user_info = database.get_user(st.session_state.name)
     st.session_state = states.update_settings(st.session_state, user_settings=st.session_state.user_info)
@@ -218,6 +217,8 @@ else:
 
     if 'deck_log' not in st.session_state:
         with st.spinner('Getting decks...'):
+            if 'user_info' not in st.session_state:
+                get_user_info()
             deck_log = database.get_user_decks(st.session_state.name, st.session_state.user_info.get('aliases', []), st.session_state.game_log)
 
             st.session_state.deck_log = deck_log
@@ -287,7 +288,8 @@ else:
                         df_cols = ['Date', 'Opponent', 'Winner', 'Turns']
 
                     game_df = st.session_state.game_log[form][df_cols]
-
+                    if 'user_info' not in st.session_state:
+                        get_user_info()
                     stylized_df, deck_colors = formatting.format_game_df(game_df, st.session_state.user_info.get('aliases', []) + [st.session_state.name], deck_colors=st.session_state.get('deck_colors', None), color_coding=st.session_state.settings.get('color_coding', True))
                     st.session_state.deck_colors = deck_colors
                     game_choice = c1.dataframe(stylized_df, on_select='rerun', selection_mode='single-row', hide_index=True)
