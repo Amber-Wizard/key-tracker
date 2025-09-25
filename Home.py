@@ -214,7 +214,7 @@ else:
                 with st.spinner("Getting user info..."):
                     get_user_info()
 
-            st.session_state.game_log = database.get_user_games(st.session_state.name, st.session_state.user_info.get('aliases', []), trim_lists=True)
+            st.session_state.game_log = database.get_user_games(st.session_state.name, st.session_state.get('user_info', {}).get('aliases', []), trim_lists=True)
 
     if 'deck_log' not in st.session_state:
         with st.spinner('Getting decks...'):
