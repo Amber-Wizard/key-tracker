@@ -158,7 +158,7 @@ else:
                         deck_code = p_deck_link.split('/')[-1]
                         if len(deck_code) == 36 and all(deck_code[i] == '-' for i in [8, 13, 18, 23]):
                             dok_data = database.get_dok_cache_deck_id(deck_code)
-                            if database.update_game_decks(st.session_state.game_id, dok_data['Deck'], "https://decksofkeyforge.com/decks/" + dok_data['ID']):
+                            if database.update_game_decks(st.session_state.game_analysis_id, dok_data['Deck'], "https://decksofkeyforge.com/decks/" + dok_data['ID']):
                                 st.success(f"Deck Updated: {dok_data['Deck']}")
                                 st.rerun()
                             else:
@@ -187,7 +187,7 @@ else:
                         deck_code = p_deck_link.split('/')[-1]
                         if len(deck_code) == 36 and all(deck_code[i] == '-' for i in [8, 13, 18, 23]):
                             dok_data = database.get_dok_cache_deck_id(deck_code)
-                            if database.update_game_decks(st.session_state.game_id, dok_data['Deck'], "https://decksofkeyforge.com/decks/" + dok_data['ID'], player=False):
+                            if database.update_game_decks(st.session_state.game_analysis_id, dok_data['Deck'], "https://decksofkeyforge.com/decks/" + dok_data['ID'], player=False):
                                 st.success(f"Deck Updated: {dok_data['Deck']}")
                                 st.rerun()
                             else:
@@ -225,7 +225,7 @@ else:
                     p_cols = st.columns([3, 1])
                     new_winner = p_cols[0].selectbox("", [player, opponent], label_visibility='collapsed')
                     if p_cols[1].button("➤", key='submit_winner'):
-                        if database.update_game_winner(st.session_state.game_id, new_winner):
+                        if database.update_game_winner(st.session_state.game_analysis_id, new_winner):
                             st.success(f"Winner Updated: {new_winner}")
                             game_data['Winner'][0] = new_winner
                             winner = new_winner

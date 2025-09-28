@@ -363,9 +363,9 @@ with st.container(border=True):
 # Make Set Graph
 set_play_graph_dict = {k: round(calcs.calculate_winrate(v, games_played, exception=0) / 2) for k, v in set_data_dict.items()}
 set_play_graph = graphing.set_meta_graph(set_play_graph_dict)
-set_wr_graph_dict = {h: calcs.calculate_winrate(set_win_dict[h]['wins'], set_win_dict[h]['wins'] + set_win_dict[h]['losses'], exception=0) for h in set_data_dict}
+set_wr_graph_dict = {h: calcs.calculate_winrate(set_win_dict[h]['wins'], set_win_dict[h]['wins'] + set_win_dict[h]['losses'], exception=0, p1smooth=True) for h in set_data_dict}
 set_wr_graph = graphing.set_meta_graph(set_wr_graph_dict, winrate=True)
-set_key_diff_graph_dict = {h: calcs.calculate_winrate(set_key_diff_dict[h]['key_diff'], set_key_diff_dict[h]['games'], exception=0, scale=False) for h in set_data_dict}
+set_key_diff_graph_dict = {h: set_key_diff_dict[h]['key_diff'] / (set_key_diff_dict[h]['games'] + 1) for h in set_data_dict}
 set_key_diff_graph = graphing.set_meta_graph(set_key_diff_graph_dict)
 
 st.subheader('Sets Played')
@@ -382,9 +382,9 @@ with st.container(border=True):
 # Make House Graph
 house_play_graph_dict = {k: round(calcs.calculate_winrate(v, games_played, exception=0) / 2) for k, v in house_data_dict.items()}
 house_play_graph = graphing.house_meta_graph(house_play_graph_dict)
-house_wr_graph_dict = {h: calcs.calculate_winrate(house_win_dict[h], v, exception=0) for h, v in house_data_dict.items()}
+house_wr_graph_dict = {h: calcs.calculate_winrate(house_win_dict[h], v, exception=0, p1smooth=True) for h, v in house_data_dict.items()}
 house_wr_graph = graphing.house_meta_graph(house_wr_graph_dict, winrate=True)
-house_key_diff_graph_dict = {h: calcs.calculate_winrate(house_key_diff_dict[h]['key_diff'], house_key_diff_dict[h]['games'], exception=0, scale=False) for h in house_data_dict}
+house_key_diff_graph_dict = {h: house_key_diff_dict[h]['key_diff'] / (house_key_diff_dict[h]['games'] + 1) for h in house_data_dict}
 house_key_diff_graph = graphing.house_meta_graph(house_key_diff_graph_dict)
 
 st.subheader('Houses Played')

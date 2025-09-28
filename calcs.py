@@ -1,13 +1,18 @@
 
 
-def calculate_winrate(wins, games, rounding=2, scale=True, include_font=False, exception='--'):
+def calculate_winrate(wins, games, rounding=2, scale=True, include_font=False, exception='--', p1smooth=False):
     if games == 0:
         if include_font:
             return exception, "plain-italic-font"
         return exception
     else:
-        winrate = wins / games
+        if p1smooth:
+            winrate = (1 + wins) / (2 + games)
+        else:
+            winrate = wins / games
+
         font_style = "hero-italic-font" if winrate >= 0.5 else "villain-italic-font"
+
         if scale:
             winrate *= 100
             winrate = round(winrate)
