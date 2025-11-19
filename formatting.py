@@ -93,6 +93,23 @@ def format_deck_df(deck_df, deck_colors=None, color_coding=False):
             return 'color: #ff4b4b'
         return None
 
+    def highlight_streak(val):
+        if val == '' or val is None:
+            return None
+        # Define buckets
+        if val < 5:
+            return 'color: #ff4b4b'
+        elif 5 <= val < 10:
+            return 'color: #ff804b'
+        elif 10 <= val < 25:
+            return 'color: #ffb84b'
+        elif 25 <= val < 52:
+            return 'color: #ffe34b'
+        elif 52 <= val < 100:
+            return 'color: #fff04b'
+        else:  # 100+
+            return 'color: #fff64b'
+
     # Start with the base style (no coloring)
     styled_df = deck_df.style
 
@@ -120,6 +137,10 @@ def format_deck_df(deck_df, deck_colors=None, color_coding=False):
                     .map(highlight_games, subset=['Games'])
                     .map(highlight_winrate, subset=['Winrate'])
             )
+
+        # Apply streak coloring if the column exists
+        if 'Streak' in deck_df.columns:
+            styled_df = styled_df.map(highlight_streak, subset=['Streak'])
 
     return styled_df, deck_colors
 

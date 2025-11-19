@@ -553,22 +553,25 @@ def get_user_decks(username, aliases=None, game_data=None):
 
     if user_games is not None and len(user_games) > 1:
         def process_user_decks(filtered_games):
-            if not isinstance(filtered_games, pd.DataFrame):  # Ensure it's a DataFrame
-                return pd.DataFrame(columns=['Deck', 'Games', 'Deck Link', 'Wins', 'Losses', 'Win-Loss', 'Winrate'])
+            if not isinstance(filtered_games, pd.DataFrame) or filtered_games.empty:
+                return pd.DataFrame(columns=['Deck', 'Games', 'Deck Link', 'Wins', 'Losses', 'Win-Loss', 'Winrate', 'Streak'])
 
-            if filtered_games.empty:
-                return pd.DataFrame(columns=['Deck', 'Games', 'Deck Link', 'Wins', 'Losses', 'Win-Loss', 'Winrate'])
-
+            # Count total games per deck
             games_counts = pd.Series([item for item in filtered_games['Deck']]).value_counts()
             user_decks = games_counts.reset_index()
             user_decks.columns = ['Deck', 'Games']
 
+            # Map deck links
             deck_link_mapping = {row['Deck']: row['Deck Link'] for _, row in filtered_games.iterrows()}
             user_decks['Deck Link'] = user_decks['Deck'].map(deck_link_mapping)
 
-            wins, losses, wl, winrates = [], [], [], []
+            wins, losses, wl, winrates, streaks = [], [], [], [], []
+
             for idx, row in user_decks.iterrows():
-                deck_games = filtered_games[(filtered_games['Deck'] == row['Deck']) & (filtered_games['Player'].apply(lambda x: x in name_list))]
+                deck_games = filtered_games[
+                    (filtered_games['Deck'] == row['Deck']) &
+                    (filtered_games['Player'].apply(lambda x: x in name_list))
+                ]
                 deck_wins = len(deck_games[deck_games['Winner'].apply(lambda x: x in name_list)])
                 deck_losses = len(deck_games) - deck_wins
 
@@ -578,13 +581,27 @@ def get_user_decks(username, aliases=None, game_data=None):
                 wl.append(f"{deck_wins}-{deck_losses}")
                 winrates.append(winrate)
 
+                # --- Calculate current weekly streak ---
+                # Get unique weeks in descending order (most recent first)
+                weeks_played = deck_games['Date'].dt.to_period('W').sort_values(ascending=False).unique()
+                streak = 0
+                today_week = pd.Timestamp(datetime.today()).to_period('W')
+
+                for i, week in enumerate(weeks_played):
+                    if week == today_week - i:
+                        streak += 1
+                    else:
+                        break
+                streaks.append(streak)
+
             user_decks['Wins'] = wins
             user_decks['Losses'] = losses
             user_decks['Win-Loss'] = wl
             user_decks['Winrate'] = winrates
+            user_decks['Streak'] = streaks
 
+            # Only include decks with at least 5 games
             user_decks = user_decks[user_decks['Games'] >= 5]
-            # user_decks['Deck'] = user_decks['Deck'].apply(lambda x: [x])
 
             return user_decks
 

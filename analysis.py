@@ -22,8 +22,8 @@ def get_turn_played(player_data, card_name, analysis_type='replay'):
         return player_data['turn_played'][-1].get(card_name, 0)
 
 
-def analyze_deck(deck_name, pilot, expansion, aliases=None, graphs=True, cards=True):
-    deck_games = database.get_deck_games(pilot, deck_name, aliases=aliases)
+def analyze_deck(deck_name, pilot, expansion, deck_games, aliases=None, graphs=True, cards=True):
+    # deck_games = database.get_deck_games(pilot, deck_name, aliases=aliases)
     base_stat_dict = {
         'turns': [],
         'cards_played': [],
@@ -72,11 +72,15 @@ def analyze_deck(deck_name, pilot, expansion, aliases=None, graphs=True, cards=T
     basic_stat_list = ['cards_played', 'amber', 'keys', 'key_cost', 'checks', 'creatures', 'amber_icons', 'amber_effect', 'amber_reaped', 'steal', 'deck_count', 'discard_count', 'archives_count', 'purged_count']
 
     extra_stat = None
+
+    # Add tokens to stats if the deck is from a token set
     if expansion in special_sets['token_sets']:
         extra_stat = 'tokens_created'
         aggregate_data[pilot][extra_stat] = []
         aggregate_data['opponent'][extra_stat] = []
         basic_stat_list.append(extra_stat)
+
+    # TODO: Add tide stat
     # elif expansion in special_sets['tide_sets']:
     #     extra_stat = 'tide_value'
     #     aggregate_data[pilot][extra_stat] = []
@@ -85,22 +89,23 @@ def analyze_deck(deck_name, pilot, expansion, aliases=None, graphs=True, cards=T
     stat_turn_vals = {pilot: [], 'opponent': []}
 
     for idx, row in deck_games.iterrows():
-        game_data = row['Game Log'][0]
-        player_name = row['Player'][0]
-        opponent_name = row['Opponent'][0]
-        winner = row['Winner'][0]
+        game_data = row['Game Log']
+        player_name = row['Player']
+        opponent_name = row['Opponent']
+        winner = row['Winner']
         won = 1 if winner == player_name else 0
-        first_player = row['Starting Player'][0]
+        first_player = row['Starting Player']
+        print("Game ID:", row['ID'], "First Player:", first_player, "Player:", player_name, "Opponent:", opponent_name)
 
         if first_player == player_name:
-            sp_list = [False, True]
+            player_second_list = [False, True]
             turn_list = aggregate_data[pilot]['individual_cards_played_turn']['first']
         else:
-            sp_list = [True, False]
+            player_second_list = [True, False]
             turn_list = aggregate_data[pilot]['individual_cards_played_turn']['second']
 
         if player_name not in game_data or opponent_name not in game_data:
-            print(f"Error getting player data (Deck Analysis): \n    Player Name - {player_name} \n    Opponent Name - {opponent_name} \n    Keys - {game_data.keys()} \n     ID - {row['ID'][0]}")
+            print(f"Error getting player data (Deck Analysis): \n    Player Name - {player_name} \n    Opponent Name - {opponent_name} \n    Keys - {game_data.keys()} \n     ID - {row['ID']}")
             continue
 
         player_data = game_data[player_name]
@@ -124,20 +129,22 @@ def analyze_deck(deck_name, pilot, expansion, aliases=None, graphs=True, cards=T
             if turn_idx >= len(turn_list):
                 turn_list.append({})
 
-            for card, played in cards_played.items():
-                if previous_cards_played and card in previous_cards_played:
-                    played = played - previous_cards_played[card]  # subtract how many times it was played last turn to get times played this turn
+            if turn_idx <= 3 and "All Hands on Deck" in cards_played:
+                print(row['ID'])
+
+            for card, played in cards_played.items():  # for each card in cards_played
+                if previous_cards_played:
+                    played = played - previous_cards_played.get(card, 0)  # subtract how many times it was played last turn to get the number of times played this turn
 
                 for x in range(played):
-                    card_key = card if x == 0 else f"{card}~~{x+1}"
+                    card_key = card if x == 0 else f"{card}~~{x+1}"  # assign the card a key based on how many copies were played. The second copy would look like: Floomf~~2
                     if card_key not in turn_list[turn_idx]:
-                        turn_list[turn_idx][card_key] = {'played': 0, 'wins': 0}
+                        turn_list[turn_idx][card_key] = {'played': 0, 'wins': 0}  # add the card ey to the dict if not already present
 
                     turn_list[turn_idx][card_key]['played'] += 1
-                    if winner == player_name:
-                        turn_list[turn_idx][card_key]['wins'] += 1
+                    turn_list[turn_idx][card_key]['wins'] += 1 if winner == player_name else 0
 
-        for player, p_data, sp in zip([pilot, 'opponent'], [player_data, opponent_data], sp_list):
+        for player, p_data, player_second in zip([pilot, 'opponent'], [player_data, opponent_data], player_second_list):
             for j in range(len(p_data['cards_played'])):
                 if j >= len(aggregate_data[player]['turns']):
                     aggregate_data[player]['turns'].append(1)
@@ -247,7 +254,7 @@ def analyze_deck(deck_name, pilot, expansion, aliases=None, graphs=True, cards=T
                 steal_dict = aggregate_data[player]['individual_steal'][-1]
                 steal_dict[card] += amber
 
-            survival_rate, survive, death, individual_survival_rate, individual_survive, individual_death = graphing.calculate_survival_rate(p_data, sp)
+            survival_rate, survive, death, individual_survival_rate, individual_survive, individual_death = graphing.calculate_survival_rate(p_data, player_second)
 
             agg_survives = aggregate_data[player]['survives']
             agg_deaths = aggregate_data[player]['deaths']
@@ -262,8 +269,9 @@ def analyze_deck(deck_name, pilot, expansion, aliases=None, graphs=True, cards=T
                     agg_deaths.extend([0] * (i + 1 - len(agg_deaths)))
                 agg_deaths[i] += d
 
-    for start in ['first', 'second']:
-        aggregate_data[pilot]['individual_cards_played_turn'][start] = [d for d in aggregate_data[pilot]['individual_cards_played_turn'][start] if d]
+    # for start in ['first', 'second']:
+        # print(aggregate_data[pilot['']])
+        # aggregate_data[pilot]['individual_cards_played_turn'][start] = [d for d in aggregate_data[pilot]['individual_cards_played_turn'][start] if d]
 
     for player, p_agg in aggregate_data.items():
         p_agg['turns'].append(1)  # add 1 in case no 1's appear
@@ -284,7 +292,7 @@ def analyze_deck(deck_name, pilot, expansion, aliases=None, graphs=True, cards=T
 
         for stat in ['turn_played', 'individual_cards_played_total', 'individual_cards_discarded', 'individual_amber_icons', 'individual_amber_effect', 'individual_amber_reaped', 'individual_steal']:
             for card in p_agg[stat][-1]:
-                p_agg[stat][-1][card] = round(p_agg[stat][-1][card]/len(deck_games), 1)  # divide stat by games
+                p_agg[stat][-1][card] = round(p_agg[stat][-1][card] / len(deck_games), 1)  # divide stat by games
 
         for stat in ['total_amber_icons', 'total_amber_effect', 'total_amber_reaped', 'total_steal']:
             p_agg[stat][-1] = round(p_agg[stat][-1] / len(deck_games), 1)

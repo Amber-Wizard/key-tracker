@@ -192,13 +192,18 @@ if 'deck_games' not in st.session_state:
 
     with st.spinner('Getting deck games...'):
         deck_games = database.get_deck_games(pilot, deck, aliases=st.session_state.pilot_info['aliases'], trim_lists=True)
+        for idx, row in deck_games.iterrows():
+            print("Game ID:", row['ID'], "Player Cards Played:", row['Game Log'][row['Player']]['cards_played'][0], "Opponent Cards Played:", row['Game Log'][row['Opponent']]['cards_played'][0])
         winner_check = deck_games['Winner'] == " has won the game "
         length_check = deck_games.apply(lambda r: len(r['Game Log'][r['Opponent']]['amber']) <= 2, axis=1)
         cards_played_check = deck_games.apply(lambda r: min(r['Game Log'][r['Player']]['cards_played'][0], r['Game Log'][r['Opponent']]['cards_played'][0]) > 0, axis=1)
+        first_player_check = deck_games.apply(lambda r: r['Game Log'][r['Player'] if r['Starting Player'] == r['Opponent'] else r['Opponent']]['cards_played'][0] > 0, axis=1)
         adaptive_check = deck_games['Game Log'].apply(lambda g: "-Error-" in g)
-        combined_cond = winner_check | length_check | adaptive_check | cards_played_check
+        combined_cond = winner_check | length_check | adaptive_check | cards_played_check | first_player_check
         error_games = deck_games[combined_cond]
         deck_games = deck_games[~combined_cond]
+        deck_games['pcp'] = deck_games.apply(lambda r: r['Game Log'][r['Player']]['cards_played'][0], axis=1)
+        deck_games['ocp'] = deck_games.apply(lambda r: r['Game Log'][r['Opponent']]['cards_played'][0], axis=1)
 
     with st.spinner('Processing games...'):
         deck_games['Opponent Deck ID'] = deck_games['Opponent Deck Link'].str.split('/').str[-1]
@@ -270,7 +275,7 @@ if 'deck_selection' not in st.session_state:
     firsts = (deck_games['Starting Player'] == deck_games['Player']).sum()
     seconds = games - firsts
     losses = games - wins
-    winrate = calcs.calculate_winrate(wins, games)
+    winrate = calcs.calculate_winrate(wins, games, p1smooth=True)
 
     st.session_state.wins = wins
     st.session_state.games = games
@@ -281,17 +286,17 @@ if 'deck_selection' not in st.session_state:
     st.session_state.deck_link = deck_link
 
 
-def pull_deck_data(d, p, exp, c=False):
+def pull_deck_data(d, p, exp, dgs, c=False):
     st.session_state.deck_data_compare = None
     st.session_state.compare_deck = None
     st.session_state.compare_deck_link = None
     print(f"Pulling deck data for deck {d} ({p})")
     if c:
-        st.session_state.deck_data_compare = analysis.analyze_deck(d, p, exp, aliases=st.session_state.pilot_info['aliases'])
+        st.session_state.deck_data_compare = analysis.analyze_deck(d, p, exp, dgs, aliases=st.session_state.pilot_info['aliases'])
     else:
         if 'aliases' not in st.session_state.pilot_info:
             st.session_state.pilot_info['aliases'] = []
-        st.session_state.deck_data = analysis.analyze_deck(d, p, exp, aliases=st.session_state.pilot_info['aliases'])
+        st.session_state.deck_data = analysis.analyze_deck(d, p, exp, dgs, aliases=st.session_state.pilot_info['aliases'])
 
 
 if 'deck_data' not in st.session_state:
@@ -300,7 +305,7 @@ if 'deck_data' not in st.session_state:
         expansion = st.session_state.deck_dok_data['deck']['expansion']
     else:
         expansion = None
-    pull_deck_data(deck, pilot, expansion)
+    pull_deck_data(deck, pilot, expansion, st.session_state.deck_games)
 
 if 'deck_data' not in st.session_state:
     st.error("No deck selected")
@@ -434,21 +439,18 @@ else:
         c_losses = c_loss_dict.get(card, 0)
 
         if c_wins + c_losses > 0:
-            c_winrate = calcs.calculate_winrate(c_wins, c_wins + c_losses, exception=np.nan)
-            player_card_data.at[idx, 'WR(P)%'] = c_winrate
+            player_card_data.at[idx, 'WR(P)%'] = calcs.calculate_winrate(c_wins, c_wins + c_losses, exception=np.nan, p1smooth=True)
 
-            c_winrate_wo = calcs.calculate_winrate(wins - c_wins, wins + losses - c_wins - c_losses, exception=np.nan)
-
-            player_card_data.at[idx, 'WR(-P)%'] = c_winrate_wo
+            player_card_data.at[idx, 'WR(-P)%'] = calcs.calculate_winrate(wins - c_wins, wins + losses - c_wins - c_losses, exception=np.nan, p1smooth=True)
 
             player_card_data.at[idx, 'Games P%'] = calcs.calculate_winrate(c_wins + c_losses, games, exception=np.nan)
 
             if card in c_drawn_dict:
-                player_card_data.at[idx, 'WR(D)%'] = calcs.calculate_winrate(c_drawn_dict[card]['wins'], c_drawn_dict[card]['drawn'], exception=np.nan)
+                player_card_data.at[idx, 'WR(D)%'] = calcs.calculate_winrate(c_drawn_dict[card]['wins'], c_drawn_dict[card]['drawn'], exception=np.nan, p1smooth=True)
+
+                player_card_data.at[idx, 'WR(-D)%'] = calcs.calculate_winrate(wins - c_drawn_dict[card]['wins'], wins + losses - c_drawn_dict[card]['drawn'], exception=np.nan, p1smooth=True)
 
                 player_card_data.at[idx, 'Games D%'] = calcs.calculate_winrate(c_drawn_dict[card]['drawn'], games, exception=np.nan)
-
-                player_card_data.at[idx, 'WR(-D)%'] = calcs.calculate_winrate(wins - c_drawn_dict[card]['wins'], wins + losses - c_drawn_dict[card]['drawn'], exception=np.nan)
 
     opponent_card_data['Games P%'] = 0
     opponent_card_data['WR(P)%'] = np.nan
@@ -461,17 +463,14 @@ else:
         c_losses = c_loss_dict.get(card, 0)
 
         if c_wins + c_losses > 0:
-            c_winrate = round(100*c_wins / (c_wins + c_losses))
-            opponent_card_data.at[idx, 'WR(P)%'] = c_winrate
+            opponent_card_data.at[idx, 'WR(P)%'] = calcs.calculate_winrate(c_wins, c_wins + c_losses, exception=np.nan, p1smooth=True)
 
-            c_winrate_wo = calcs.calculate_winrate(wins - c_wins, wins + losses - c_wins - c_losses, exception=np.nan)
-
-            opponent_card_data.at[idx, 'WR(-P)%'] = c_winrate_wo
+            opponent_card_data.at[idx, 'WR(-P)%'] = calcs.calculate_winrate(wins - c_wins, wins + losses - c_wins - c_losses, exception=np.nan, p1smooth=True)
 
             opponent_card_data.at[idx, 'Games P%'] = round(100*(c_wins + c_losses) / games)
 
-    # player_card_data['Impact'] = round((player_card_data['WR(P)%'] - player_card_data['WR(-P)%']))
-    # opponent_card_data['Impact'] = round((opponent_card_data['WR(P)%'] - opponent_card_data['WR(-P)%']))
+    player_card_data['Impact'] = round((player_card_data['WR(P)%'] - player_card_data['WR(-P)%']))
+    opponent_card_data['Impact'] = round((opponent_card_data['WR(P)%'] - opponent_card_data['WR(-P)%']))
 
     st.divider()
     tabs = st.tabs(['Info', 'Stats', 'Charts', 'Advantage', 'Cards'])#, 'Mulligan'])
@@ -677,6 +676,9 @@ else:
                     st.plotly_chart(house_winrate_graph, use_container_width=True)
                 with chart_tab_2:
                     st.plotly_chart(house_play_rate_graph, use_container_width=True)
+
+
+        # st.write(st.session_state.deck_games)
 
         if 'name' in st.session_state and st.session_state.name == pilot:
             st.divider()
@@ -1041,14 +1043,23 @@ else:
 
         }
 
+        player_card_data['Turn'] = round(player_card_data['Turn'] / player_card_data['Games P%'], 1)
+        opponent_card_data['Turn'] = round(opponent_card_data['Turn'] / opponent_card_data['Games P%'], 1)
+
+        for stat in ['Played', 'Amber', 'Reaps', 'Icons', 'Steal', 'Effects', 'Amber %']:
+            opponent_card_data[stat] = round(opponent_card_data[stat] / opponent_card_data['Games P%'], 1)
+
         card_data_cols = ['Image', 'Card', 'Turn', 'Played', 'Amber', 'Reaps', 'Icons', 'Steal', 'Effects', 'Amber %', 'Games P%', 'WR(P)%', 'WR(-P)%']
 
         st.subheader("Card Data")
+        unique_cards = {item for lst in house_cards.values() for item in lst}
         with st.expander(r"$\textsf{\large Player Card Data}$"):
-            st.dataframe(player_card_data[card_data_cols + ['Games D%', 'WR(D)%', 'WR(-D)%']], hide_index=True, column_config=df_col_config)
+            filtered_player_card_data = player_card_data[player_card_data['Card'].isin(unique_cards)]
+            st.dataframe(filtered_player_card_data[card_data_cols + ['Games D%', 'WR(D)%', 'WR(-D)%']], hide_index=True, column_config=df_col_config)
 
         with st.expander(r"$\textsf{\large Opponent Card Data}$"):
-            st.dataframe(opponent_card_data[card_data_cols], hide_index=True, column_config=df_col_config)
+            filtered_opponent_card_data = opponent_card_data[opponent_card_data['Games P%'] > 0]
+            st.dataframe(filtered_opponent_card_data[card_data_cols], hide_index=True, column_config=df_col_config)
 
         if 'expand_all' not in st.session_state:
             st.session_state.expand_all = False
@@ -1077,8 +1088,12 @@ else:
             num_games = st.session_state.seconds
 
         card_played_data = st.session_state.deck_data[pilot]['individual_cards_played_turn'][starting_turn]
-
         c3.button(exp_button_string, on_click=expand_turns)
+
+        if starting_turn == 'first':
+            card_played_data = card_played_data[::2]
+        else:
+            card_played_data = card_played_data[1::2]
 
         for t, cards_played_turn in enumerate(card_played_data):
             relative_frequencies = {key: value['played'] / num_games for key, value in cards_played_turn.items()}
@@ -1104,7 +1119,7 @@ else:
                         frequency_string = f"  {frequency}%"
 
                     card_turn_data = cards_played_turn[card_name]
-                    card_turn_winrate = round(100 * card_turn_data['wins'] / card_turn_data['played'])
+                    card_turn_winrate = calcs.calculate_winrate(card_turn_data['wins'], card_turn_data['played'], p1smooth=True)
                     if card_turn_winrate == 100:
                         card_turn_winrate_string = f" {card_turn_winrate}%"
                     elif card_turn_winrate < 10:

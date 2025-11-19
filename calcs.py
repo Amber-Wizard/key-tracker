@@ -7,7 +7,11 @@ def calculate_winrate(wins, games, rounding=2, scale=True, include_font=False, e
         return exception
     else:
         if p1smooth:
-            winrate = (1 + wins) / (2 + games)
+            if games < 0:
+                print(f'Negative games error: {games} games')
+                winrate = 0
+            else:
+                winrate = (1 + wins) / (2 + games)
         else:
             winrate = wins / games
 

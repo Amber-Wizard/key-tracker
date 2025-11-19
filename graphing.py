@@ -441,6 +441,10 @@ def analyze_deck(username, log, games, game_format, high_contrast=False):
 
         advantage_graphs.append(advantage_chart(game_dataframe[f'{stat} Advantage']))
 
+    # Smooth Prediction
+    game_dataframe['Player Prediction'] = pd.DataFrame({'current': game_dataframe['Player Prediction'], 'previous': game_dataframe['Player Prediction'].shift(1)}).mean(axis=1)
+    game_dataframe['Opponent Prediction'] = pd.DataFrame({'current': game_dataframe['Opponent Prediction'], 'previous': game_dataframe['Opponent Prediction'].shift(1)}).mean(axis=1)
+
     return {
         "game_dataframe": game_dataframe,
         "player_amber_sources": player_amber_sources,
@@ -649,7 +653,9 @@ def create_game_analysis_graphs(player_data, username, opponent_data, opponent_n
     if 'tokens_created' in opponent_data:
         if len(opponent_data['tokens_created']) == len(game_dataframe):
             game_dataframe['Opponent Tokens'] = opponent_data['tokens_created']
-
+    # Smooth Prediction
+    game_dataframe['Player Prediction'] = pd.DataFrame({'current': game_dataframe['Player Prediction'], 'previous': game_dataframe['Player Prediction'].shift(1)}).mean(axis=1)
+    game_dataframe['Opponent Prediction'] = pd.DataFrame({'current': game_dataframe['Opponent Prediction'], 'previous': game_dataframe['Opponent Prediction'].shift(1)}).mean(axis=1)
     advantage_graphs = []
     advantage_stats = ['Amber', 'Cards', 'Prediction', 'Creatures', 'Delta', 'Reap Rate', 'Amber Defense', 'Survival Rate']
     advantage_reverse = [False] * len(advantage_stats)
@@ -680,11 +686,11 @@ def calculate_tav(player_data, opponent_data):
             print(len(player_data['checked_keys']), len(player_data['checks']))
             print(player_data['checks'])
             print(player_data['checked_keys'])
-            p_forge_rate = [round(100 * k / c) if c != 0 and k != 0 else None for k, c in zip(player_data['checked_keys'], player_data['checks'])]
-            op_forge_rate = [round(100 * k / c) if c != 0 and k != 0 else None for k, c in zip(opponent_data['checked_keys'], opponent_data['checks'])]
+            p_forge_rate = [round(100 * k / c) if c != 0 and k != 0 else None for k, c in zip(player_data['checked_keys'][2:], player_data['checks'][:-2])]
+            op_forge_rate = [round(100 * k / c) if c != 0 and k != 0 else None for k, c in zip(opponent_data['checked_keys'][2:], opponent_data['checks'][:-2])]
         else:
-            p_forge_rate = [round(100 * k / c) if c != 0 and k != 0 else None for k, c in zip(player_data['keys'], player_data['checks'])]
-            op_forge_rate = [round(100 * k / c) if c != 0 and k != 0 else None for k, c in zip(opponent_data['keys'], opponent_data['checks'])]
+            p_forge_rate = [round(100 * k / c) if c != 0 and k != 0 else None for k, c in zip(player_data['keys'][2:], player_data['checks'][:-2])]
+            op_forge_rate = [round(100 * k / c) if c != 0 and k != 0 else None for k, c in zip(opponent_data['keys'][2:], opponent_data['checks'][:-2])]
     else:
         p_forge_rate = [0 for _ in range(len(player_data['keys']))]
         op_forge_rate = [0 for _ in range(len(opponent_data['keys']))]

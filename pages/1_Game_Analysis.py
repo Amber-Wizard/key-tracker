@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 
 import database
 import dok_api
@@ -359,20 +360,25 @@ else:
                 'tooltip': "The number of cards in each players discard."
             }
 
+        game_df = game_df.replace({None: np.nan})
+
         for i, chart in enumerate(chart_dict.keys()):
             col = c1 if i % 2 == 0 else c2
 
             tooltip = chart_dict[chart].get('tooltip', "")
 
             col.subheader(chart, help=tooltip)
-            col.line_chart(
-                game_df,
-                x=None,
-                y=chart_dict[chart]['y_values'],
-                x_label='Turn',
-                y_label=chart_dict[chart]['y_label'],
-                color=chart_dict[chart]['color']
-            )
+            try:
+                col.line_chart(
+                    game_df,
+                    x=None,
+                    y=chart_dict[chart]['y_values'],
+                    x_label='Turn',
+                    y_label=chart_dict[chart]['y_label'],
+                    color=chart_dict[chart]['color']
+                )
+            except:
+                col.error(f"Error plotting chart: {chart}")
 
         c1, c2 = st.columns(2)
         c1.subheader("Player Amber Sources")

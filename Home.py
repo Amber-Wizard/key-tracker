@@ -78,7 +78,7 @@ else:
 
     c2.image(st.session_state.settings['icon_link'])
 
-versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0", "0.6.1", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.10.1", "0.10.2", "0.10.3", "0.10.4", "0.10.5"]
+versions = ["0.4.1", "0.5.0", "0.5.1", "0.6.0", "0.6.1", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.10.1", "0.10.2", "0.10.3", "0.10.4", "0.10.5", "0.10.6"]
 
 
 changes = [
@@ -190,7 +190,8 @@ changes = [
         'Removed Favorites (Player Page)',
         'Fixed Calculation Issue (Deck Analysis)',
         'Various Restructuring & Improvements',
-    ]
+    ],
+    ['Added Streaks', 'Added Various Smoothing', 'Minor Bug Fixes']
 ]
 with st.expander(fr"$\texttt{{\color{{gray}}\Large v{versions[-1]}}}$"):
     st.divider()
@@ -345,7 +346,7 @@ else:
                 with tab:
                     if form != 'sealed':
                         c1, _ = st.columns([6, 4])
-                        df_cols = ['Deck', 'Games', 'Win-Loss', 'Winrate']
+                        df_cols = ['Deck', 'Games', 'Win-Loss', 'Winrate', 'Streak']
                     else:
                         c1, _ = st.columns([1, 2])
                         df_cols = ['Games', 'Win-Loss', 'Winrate']
@@ -357,6 +358,13 @@ else:
                     }
 
                     deck_df = st.session_state.deck_log[form][df_cols]
+
+                    if 'Streak' in deck_df:
+                        deck_df['Streak'] = deck_df['Streak'].replace(0, '', regex=False)
+                        deck_df['Streak'] = deck_df['Streak'].replace(1, '', regex=False)
+                        if pd.to_numeric(deck_df['Streak'], errors='coerce').fillna(0).sum() <= 0:
+                            deck_df = deck_df.drop('Streak', axis=1 )
+
                     stylized_df, deck_colors = formatting.format_deck_df(deck_df, deck_colors=st.session_state.get('deck_colors', None), color_coding=st.session_state.settings.get('color_coding', True))
 
                     deck_choice = c1.dataframe(stylized_df, on_select='rerun', selection_mode='single-row', hide_index=True, column_config=df_col_config)
@@ -374,16 +382,6 @@ else:
                                 del st.session_state['deck_data']
                             if 'share_id' in st.session_state:
                                 del st.session_state['share_id']
-                            # if sas_min:
-                            #     st.session_state.sas_min = sas_min
-                            # else:
-                            #     if 'sas_min' in st.session_state:
-                            #         del st.session_state['sas_min']
-                            # if sas_max:
-                            #     st.session_state.sas_max = sas_max
-                            # else:
-                            #     if 'sas_max' in st.session_state:
-                            #         del st.session_state['sas_max']
 
                             st.session_state.deck_selection = st.session_state.deck_log[form].iloc[selected_deck]
                             deck = st.session_state.deck_selection['Deck'].iat[0]
