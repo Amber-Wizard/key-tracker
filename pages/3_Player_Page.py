@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
 
+import calcs
 import database
+import elems
 from graphing import house_dict, set_dict
 import states
 
@@ -73,92 +75,94 @@ try:
 except:
     pass
 
-st.markdown("""
-<style>
-.deck-font {
-    font-size: 32px !important;
-}
-.pilot-font {
-    font-size: 28px !important;
-    color: #6d3fc0 !important;
-}
-.game-data-font {
-    font-size: 28px !important;
-    color: #424242 !important;
-}
-.plain-font {
-    font-size: 26px !important;
-}
-.plain-italic-font {
-    font-size: 26px !important;
-    font-style: italic !important;  /* Make this font italic */
-}
-.hero-font {
-    font-size: 26px !important;
-    color: #60b4ff !important;
-}
-.villain-font {
-    font-size: 26px !important;
-    color: #ff4b4b !important;
-}
-.big-hero-font {
-    font-size: 36px !important;
-    color: #60b4ff !important;
-}
-.big-villain-font {
-    font-size: 36px !important;
-    color: #ff4b4b !important;
-}
-.small-hero-font {
-    font-size: 20px !important;
-    color: #60b4ff !important;
-}
-.small-villain-font {
-    font-size: 20px !important;
-    color: #ff4b4b !important;
-}
-.CotA-font {
-    font-size: 28px !important;
-    color: #d92b34 !important;
-}
-.AoA-font {
-    font-size: 28px !important;
-    color: #259adb !important;
-}
-.WC-font {
-    font-size: 28px !important;
-    color: #ad39a5 !important;
-}
-.MM-font {
-    font-size: 28px !important;
-    color: #e94e76 !important;
-}
-.DT-font {
-    font-size: 28px !important;
-    color: #136697 !important;
-}
-.WoE-font {
-    font-size: 28px !important;
-    color: #0c9aa8 !important;
-}
-.GR-font {
-    font-size: 28px !important;
-    color: #0c4f7f !important;
-}
-.VM23-font {
-    font-size: 28px !important;
-    color: #838383 !important;
-}
-.VM24-font {
-    font-size: 28px !important;
-    color: #838383 !important;
-}
-.amber-font {
-    font-size: 22px !important;
-    color: #f8df65 !important;
-}
-</style>
-""", unsafe_allow_html=True)
+st.markdown(elems.font_base, unsafe_allow_html=True)
+
+# st.markdown("""
+# <style>
+# .deck-font {
+#     font-size: 32px !important;
+# }
+# .pilot-font {
+#     font-size: 28px !important;
+#     color: #6d3fc0 !important;
+# }
+# .game-data-font {
+#     font-size: 28px !important;
+#     color: #424242 !important;
+# }
+# .plain-font {
+#     font-size: 26px !important;
+# }
+# .plain-italic-font {
+#     font-size: 26px !important;
+#     font-style: italic !important;  /* Make this font italic */
+# }
+# .hero-font {
+#     font-size: 26px !important;
+#     color: #60b4ff !important;
+# }
+# .villain-font {
+#     font-size: 26px !important;
+#     color: #ff4b4b !important;
+# }
+# .big-hero-font {
+#     font-size: 36px !important;
+#     color: #60b4ff !important;
+# }
+# .big-villain-font {
+#     font-size: 36px !important;
+#     color: #ff4b4b !important;
+# }
+# .small-hero-font {
+#     font-size: 20px !important;
+#     color: #60b4ff !important;
+# }
+# .small-villain-font {
+#     font-size: 20px !important;
+#     color: #ff4b4b !important;
+# }
+# .CotA-font {
+#     font-size: 28px !important;
+#     color: #d92b34 !important;
+# }
+# .AoA-font {
+#     font-size: 28px !important;
+#     color: #259adb !important;
+# }
+# .WC-font {
+#     font-size: 28px !important;
+#     color: #ad39a5 !important;
+# }
+# .MM-font {
+#     font-size: 28px !important;
+#     color: #e94e76 !important;
+# }
+# .DT-font {
+#     font-size: 28px !important;
+#     color: #136697 !important;
+# }
+# .WoE-font {
+#     font-size: 28px !important;
+#     color: #0c9aa8 !important;
+# }
+# .GR-font {
+#     font-size: 28px !important;
+#     color: #0c4f7f !important;
+# }
+# .VM23-font {
+#     font-size: 28px !important;
+#     color: #838383 !important;
+# }
+# .VM24-font {
+#     font-size: 28px !important;
+#     color: #838383 !important;
+# }
+# .amber-font {
+#     font-size: 22px !important;
+#     color: #f8df65 !important;
+# }
+# </style>
+# """, unsafe_allow_html=True)
 
 hide_streamlit_style = """
             <style>
@@ -198,7 +202,7 @@ else:
         st.switch_page("Home.py")
     st.write('')
 
-    page_tabs = st.tabs(['Stats', 'Achievements', 'Settings'])
+    page_tabs = st.tabs(['Stats', 'Achievements', 'Settings'])#, 'Recap'])
 
     with page_tabs[0]:
         if all(v is None for v in st.session_state.get('player_games', {}).values()):
@@ -237,62 +241,6 @@ else:
                                 c4.markdown(f'<b class="hero-font">{score}</b>', unsafe_allow_html=True)
                             elif score < 1500:
                                 c4.markdown(f'<b class="villain-font">{score}</b>', unsafe_allow_html=True)
-
-                        # st.divider()
-                        # st.write('')
-                        # st.write('')
-                        # with st.spinner('Getting favorites...'):
-                        #     if 'favorite_deck' not in st.session_state:
-                        #         st.session_state.favorite_deck = {}
-                        #     if game_format not in st.session_state.favorite_deck and game_format != 'sealed':
-                        #         st.session_state.favorite_deck[game_format] = st.session_state.player_games[game_format]['Deck'].mode()[0]
-                        #
-                        #     if 'favorite_opponent' not in st.session_state:
-                        #         st.session_state.favorite_opponent = {}
-                        #     if game_format not in st.session_state.favorite_opponent:
-                        #         st.session_state.favorite_opponent[game_format] = st.session_state.player_games[game_format]['Opponent'].mode()[0]
-                        #
-                        #     if 'favorite_set' not in st.session_state or 'sorted_houses' not in st.session_state:
-                        #         st.session_state.favorite_set = {}
-                        #         st.session_state.sorted_houses = {}
-                        #
-                        #     if (game_format not in st.session_state.favorite_set or game_format not in st.session_state.sorted_houses) and game_format != 'sealed':
-                        #         deck_data = st.session_state.player_games[game_format].groupby('Deck Link').size().reset_index(name='Count')
-                        #         deck_data['Deck ID'] = deck_data['Deck Link'].str.split('/').str[-1]
-                        #         deck_data['Dok Data'] = deck_data['Deck ID'].apply(database.get_dok_cache_deck_id)
-                        #         deck_data = deck_data[deck_data['Dok Data'].notna()]
-                        #
-                        #         deck_data['Set'] = deck_data['Dok Data'].apply(lambda dok_data: database.set_conversion_dict[dok_data['Data']['deck']['expansion']][0])
-                        #         set_count_sum = deck_data.groupby('Set')['Count'].sum().reset_index(name='Count')
-                        #         if not set_count_sum.empty and not set_count_sum['Count'].isna().all():
-                        #             st.session_state.favorite_set[game_format] = set_count_sum.loc[set_count_sum['Count'].idxmax(), 'Set']
-                        #         else:
-                        #             st.session_state.favorite_set[game_format] = None  # or a default value, e.g., 'Unknown'
-                        #
-                        #         deck_data['Houses'] = deck_data['Dok Data'].apply(lambda dok_data: [hd['house'] for hd in dok_data['Data']['deck']['housesAndCards']])
-                        #         expanded_deck_games = deck_data.explode('Houses')
-                        #         house_winrate_df = expanded_deck_games.groupby('Houses')['Count'].sum().reset_index(name='Count')
-                        #         st.session_state.sorted_houses[game_format] = house_winrate_df.sort_values(by='Count', ascending=False)
-                        #
-                        # if game_format != 'sealed':
-                        #     top_3_houses = st.session_state.sorted_houses[game_format].head(3)
-                        #     c1, c2, c3 = st.columns([1, 2, 0.5])
-                        #
-                        #     c1.markdown(f'<p class="plain-font">Favorite Deck:</p>', unsafe_allow_html=True)
-                        #     c2.markdown(f'<b class="plain-font">{st.session_state.favorite_deck[game_format]}</b>', unsafe_allow_html=True)
-                        # c3.button('Deck Info')
-
-                            # c1.markdown(f'<p class="plain-font">Favorite Set:</p>', unsafe_allow_html=True)
-                            # c2.markdown(f'<b class ="{st.session_state.favorite_set[game_format]}-font">{st.session_state.favorite_set[game_format]}</b>', unsafe_allow_html=True)
-                            #
-                            # cols = st.columns([1, 0.15, 0.15, 0.15, 2.05])
-                            # cols[0].markdown(f'<p class="plain-font">Favorite Houses:</p>', unsafe_allow_html=True)
-                            # for i, h in enumerate(top_3_houses['Houses'].values):
-                            #     cols[i+1].image(house_dict[h]['Image'])
-                        #
-                        # c1, c2, c3 = st.columns([1, 2, 0.5])
-                        # c1.markdown(f'<p class="plain-font">Favorite Opponent:</p>', unsafe_allow_html=True)
-                        # c2.markdown(f'<b class="villain-font">{st.session_state.favorite_opponent[game_format]}</b>', unsafe_allow_html=True)
 
             # Calculate Achievements
             name = st.session_state.name
@@ -385,7 +333,8 @@ else:
                 notifs = []
 
                 with st.spinner('Calculating temp_achievements...'):
-                    for idx, row in st.session_state.player_games['archon'].iterrows():
+                    archon_games, error_games = calcs.remove_error_games(st.session_state.player_games['archon'])
+                    for idx, row in archon_games.iterrows():
                         player_log = row['Game Log'][row['Player']]
                         opponent_log = row['Game Log'][row['Opponent']]
                         for a in achievement_func_dict.keys():
@@ -573,5 +522,141 @@ else:
             #         c2.progress(0.66, '')
             #         c3.write(':orange[2/3]')
 
+        # with page_tabs[3]:
+        #     c1, c2 = st.columns([11, 1], vertical_alignment='bottom')
+        #     c1.title('2025 Keycap')
+        #     if c2.button('Load'):
+        #
+        #         # Filter games to this year
+        #         game_formats = ['archon', 'alliance', 'sealed']
+        #
+        #         year_games = {}
+        #         player_games = st.session_state.player_games
+        #         start = pd.to_datetime("2025-01-01")
+        #         end = pd.to_datetime("2025-12-31")
+        #         for game_format in game_formats:
+        #             format_df = player_games[game_format]
+        #
+        #             format_df["Date"] = pd.to_datetime(format_df["Date"], errors="coerce")
+        #
+        #             year_games[game_format] = format_df[(format_df["Date"].dt.date >= start.date()) & (format_df["Date"].dt.date <= end.date())]
+        #
+        #         recap_tabs = st.tabs([f.title() for f in game_formats])
+        #         for game_format, recap_tab in zip(game_formats, recap_tabs):
+        #             format_year_games = year_games[game_format]
+        #             with recap_tab:
+        #                 with st.container(border=True):
+        #                     if game_format not in year_games or len(format_year_games) == 0:
+        #                         st.error('No games played.')
+        #                         continue
+        #
+        #                     # Main display section for recap
+        #                     st.subheader(game_format.title())
+        #                     c0, c1, c2, c3 = st.columns([0.5, 1, 1, 1], vertical_alignment='top')
+        #                     c1.subheader("Games")
+        #                     c2.subheader("Win-Loss")
+        #                     c3.subheader("WR%")
+        #
+        #                     games = len(format_year_games)
+        #                     wins = len(format_year_games[format_year_games['Winner'] == format_year_games['Player']])
+        #                     losses = games - wins
+        #                     winrate, font = calcs.calculate_winrate(wins, games, include_font=True)
+        #
+        #                     c1.markdown(f'<b class="plain-font">{games}</b>', unsafe_allow_html=True)
+        #                     c2.markdown(f'<b class="hero-font">{wins}</b><b class="plain-font">-</b><b class="villain-font">{losses}</b>', unsafe_allow_html=True)
+        #                     c3.markdown(f'<b class="{font}">{winrate}%</b>', unsafe_allow_html=True)
+        #
+        #                     if game_format != 'sealed':
+        #                         st.divider()
+        #
+        #                         top_decks = format_year_games["Deck"].value_counts()[:10]
+        #                         top_decks = top_decks[top_decks > 10]
+        #
+        #                         with st.expander(r"$\textsf{\large Favorite Decks}$", expanded=True):
+        #                             deck_cols = st.columns([4, 1, 1, 1.2, 0.8], vertical_alignment='top')
+        #                             deck_cols[0].subheader('Deck')
+        #                             deck_cols[1].subheader('Games')
+        #                             deck_cols[2].subheader('Games %')
+        #                             deck_cols[3].subheader('Win-Loss')
+        #                             deck_cols[4].subheader('WR%')
+        #
+        #                             for idx, deck in enumerate(top_decks.index):
+        #                                 deck_games = format_year_games[format_year_games['Deck'] == deck]
+        #                                 deck_games_pct = calcs.calculate_winrate(len(deck_games), games)
+        #                                 deck_wins = deck_games[deck_games['Winner'] == deck_games['Player']]
+        #                                 deck_wr, deck_wr_font = calcs.calculate_winrate(len(deck_wins), len(deck_games), include_font=True)
+        #                                 if len(deck) >= 36:
+        #                                     deck = deck[:32] + '...'
+        #
+        #                                 deck_cols[0].markdown(f'<b class="plain-font">{idx+1}. {deck}</b>', unsafe_allow_html=True)
+        #                                 deck_cols[1].markdown(f'<b class="plain-font">{len(deck_games)}</b>', unsafe_allow_html=True)
+        #                                 deck_cols[2].markdown(f'<b class="plain-font">{deck_games_pct}%</b>', unsafe_allow_html=True)
+        #                                 deck_cols[3].markdown(f'<b class="hero-font">{len(deck_wins)}</b><b class="plain-font">-</b><b class="villain-font">{len(deck_games)-len(deck_wins)}</b>', unsafe_allow_html=True)
+        #                                 deck_cols[4].markdown(f'<b class="{deck_wr_font}">{deck_wr}%</b>', unsafe_allow_html=True)
+        #                                 st.write('')
 
+                # for game_format in ['archon', 'alliance', 'sealed']:
+                #     if game_format in st.session_state.player_games and len(st.session_state.player_games[game_format]) > 0:
+                #         with st.container(border=True):
+                #             st.subheader(game_format.title())
+                #             c0, c1, c2, c3, c4 = st.columns([0.5, 1, 1, 1, 1], vertical_alignment='top')
+                #             c1.subheader("Games")
+                #             c2.subheader("Win-Loss")
+                #             c3.subheader("Winrate")
+                #             c4.subheader("ELO")
+                #             games = len(st.session_state.player_games[game_format])
+
+                # with st.spinner('Getting favorites...'):
+                #     if 'favorite_deck' not in st.session_state:
+                #         st.session_state.favorite_deck = {}
+                #     if game_format not in st.session_state.favorite_deck and game_format != 'sealed':
+                #         st.session_state.favorite_deck[game_format] = st.session_state.player_games[game_format]['Deck'].mode()[0]
+                #
+                #     if 'favorite_opponent' not in st.session_state:
+                #         st.session_state.favorite_opponent = {}
+                #
+                #     if game_format not in st.session_state.favorite_opponent:
+                #         st.session_state.favorite_opponent[game_format] = st.session_state.player_games[game_format]['Opponent'].mode()[0]
+                #
+                #     if 'favorite_set' not in st.session_state or 'sorted_houses' not in st.session_state:
+                #         st.session_state.favorite_set = {}
+                #         st.session_state.sorted_houses = {}
+                #
+                #     if (game_format not in st.session_state.favorite_set or game_format not in st.session_state.sorted_houses) and game_format != 'sealed':
+                #         deck_data = st.session_state.player_games[game_format].groupby('Deck Link').size().reset_index(name='Count')
+                #         deck_data['Deck ID'] = deck_data['Deck Link'].str.split('/').str[-1]
+                #         deck_data['Dok Data'] = deck_data['Deck ID'].apply(database.get_dok_cache_deck_id)
+                #         deck_data = deck_data[deck_data['Dok Data'].notna()]
+                #
+                #         deck_data['Set'] = deck_data['Dok Data'].apply(lambda dok_data: database.set_conversion_dict[dok_data['Data']['deck']['expansion']][0])
+                #         set_count_sum = deck_data.groupby('Set')['Count'].sum().reset_index(name='Count')
+                #         if not set_count_sum.empty and not set_count_sum['Count'].isna().all():
+                #             st.session_state.favorite_set[game_format] = set_count_sum.loc[set_count_sum['Count'].idxmax(), 'Set']
+                #         else:
+                #             st.session_state.favorite_set[game_format] = None  # or a default value, e.g., 'Unknown'
+                #
+                #         deck_data['Houses'] = deck_data['Dok Data'].apply(lambda dok_data: [hd['house'] for hd in dok_data['Data']['deck']['housesAndCards']])
+                #         expanded_deck_games = deck_data.explode('Houses')
+                #         house_winrate_df = expanded_deck_games.groupby('Houses')['Count'].sum().reset_index(name='Count')
+                #         st.session_state.sorted_houses[game_format] = house_winrate_df.sort_values(by='Count', ascending=False)
+                #
+                # if game_format != 'sealed':
+                #     top_3_houses = st.session_state.sorted_houses[game_format].head(3)
+                #     c1, c2, c3 = st.columns([1, 2, 0.5])
+                #
+                #     c1.markdown(f'<p class="plain-font">Favorite Deck:</p>', unsafe_allow_html=True)
+                #     c2.markdown(f'<b class="plain-font">{st.session_state.favorite_deck[game_format]}</b>', unsafe_allow_html=True)
+                # c3.button('Deck Info')
+                #
+                # c1.markdown(f'<p class="plain-font">Favorite Set:</p>', unsafe_allow_html=True)
+                # c2.markdown(f'<b class ="{st.session_state.favorite_set[game_format]}-font">{st.session_state.favorite_set[game_format]}</b>', unsafe_allow_html=True)
+                #
+                # cols = st.columns([1, 0.15, 0.15, 0.15, 2.05])
+                # cols[0].markdown(f'<p class="plain-font">Favorite Houses:</p>', unsafe_allow_html=True)
+                # for i, h in enumerate(top_3_houses['Houses'].values):
+                #     cols[i+1].image(house_dict[h]['Image'])
+                #
+                # c1, c2, c3 = st.columns([1, 2, 0.5])
+                # c1.markdown(f'<p class="plain-font">Favorite Opponent:</p>', unsafe_allow_html=True)
+                # c2.markdown(f'<b class="villain-font">{st.session_state.favorite_opponent[game_format]}</b>', unsafe_allow_html=True)
 
