@@ -192,21 +192,29 @@ if 'deck_games' not in st.session_state:
 
     with st.spinner('Getting deck games...'):
         deck_games = database.get_deck_games(pilot, deck, aliases=st.session_state.pilot_info['aliases'], trim_lists=True)
-        for idx, row in deck_games.iterrows():
-            if len(row['Game Log'][row['Player']]['cards_played']) == 0 or len(row['Game Log'][row['Opponent']]['cards_played']):
-                print(f"Error game detected: Empty Game Log [{row['ID']}]")
-            else:
-                print("Game ID:", row['ID'], "Player Cards Played:", row['Game Log'][row['Player']]['cards_played'][0], "Opponent Cards Played:", row['Game Log'][row['Opponent']]['cards_played'][0])
+        # for idx, row in deck_games.iterrows():
+        #     if len(row['Game Log'][row['Player']]['cards_played']) == 0 or len(row['Game Log'][row['Opponent']]['cards_played']):
+        #         print(f"Error game detected: Empty Game Log [{row['ID']}]")
+        #     else:
+        #         print("Game ID:", row['ID'], "Player Cards Played:", row['Game Log'][row['Player']]['cards_played'][0], "Opponent Cards Played:", row['Game Log'][row['Opponent']]['cards_played'][0])
+
+        deck_games['pcp'] = deck_games.apply(lambda r: calcs.grab(r['Game Log'][r['Player']]['cards_played'], 5), axis=1)
+
+        deck_games['ocp'] = deck_games.apply(lambda r: calcs.grab(r['Game Log'][r['Opponent']]['cards_played'], 5), axis=1)
+
+        deck_games['second_player_cp'] = deck_games.apply(lambda r: calcs.grab(r['Game Log'][r['Player'] if r['Starting Player'] == r['Opponent'] else r['Opponent']]['cards_played'], 5), axis=1)
+
+        deck_games['opp_amber_len'] = deck_games.apply(lambda r: len(r['Game Log'][r['Opponent']]['amber']), axis=1)
+
         winner_check = deck_games['Winner'] == " has won the game "
-        length_check = deck_games.apply(lambda r: len(r['Game Log'][r['Opponent']]['amber']) <= 2, axis=1)
-        cards_played_check = deck_games.apply(lambda r: min(r['Game Log'][r['Player']]['cards_played'][0], r['Game Log'][r['Opponent']]['cards_played'][0]) > 0, axis=1)
-        first_player_check = deck_games.apply(lambda r: r['Game Log'][r['Player'] if r['Starting Player'] == r['Opponent'] else r['Opponent']]['cards_played'][0] > 0, axis=1)
+        length_check = deck_games['opp_amber_len'] <= 2
+        cards_played_check = deck_games[['pcp', 'ocp']].min(axis=1) > 0
+        first_player_check = deck_games['second_player_cp'] > 0
         adaptive_check = deck_games['Game Log'].apply(lambda g: "-Error-" in g)
+
         combined_cond = winner_check | length_check | adaptive_check | cards_played_check | first_player_check
         error_games = deck_games[combined_cond]
         deck_games = deck_games[~combined_cond]
-        deck_games['pcp'] = deck_games.apply(lambda r: r['Game Log'][r['Player']]['cards_played'][0], axis=1)
-        deck_games['ocp'] = deck_games.apply(lambda r: r['Game Log'][r['Opponent']]['cards_played'][0], axis=1)
 
     with st.spinner('Processing games...'):
         deck_games['Opponent Deck ID'] = deck_games['Opponent Deck Link'].str.split('/').str[-1]

@@ -1,4 +1,11 @@
 
+def grab(lst, default, index=0):
+    """Like .get(), but for lists"""
+    try:
+        return lst[index]
+    except IndexError:
+        return default
+
 
 def calculate_winrate(wins, games, rounding=2, scale=True, include_font=False, exception='--', p1smooth=False):
     if games == 0:
