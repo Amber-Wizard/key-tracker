@@ -193,7 +193,10 @@ if 'deck_games' not in st.session_state:
     with st.spinner('Getting deck games...'):
         deck_games = database.get_deck_games(pilot, deck, aliases=st.session_state.pilot_info['aliases'], trim_lists=True)
         for idx, row in deck_games.iterrows():
-            print("Game ID:", row['ID'], "Player Cards Played:", row['Game Log'][row['Player']]['cards_played'][0], "Opponent Cards Played:", row['Game Log'][row['Opponent']]['cards_played'][0])
+            if len(row['Game Log'][row['Player']]['cards_played']) == 0 or len(row['Game Log'][row['Opponent']]['cards_played']):
+                print(f"Error game detected: Empty Game Log [{row['ID']}]")
+            else:
+                print("Game ID:", row['ID'], "Player Cards Played:", row['Game Log'][row['Player']]['cards_played'][0], "Opponent Cards Played:", row['Game Log'][row['Opponent']]['cards_played'][0])
         winner_check = deck_games['Winner'] == " has won the game "
         length_check = deck_games.apply(lambda r: len(r['Game Log'][r['Opponent']]['amber']) <= 2, axis=1)
         cards_played_check = deck_games.apply(lambda r: min(r['Game Log'][r['Player']]['cards_played'][0], r['Game Log'][r['Opponent']]['cards_played'][0]) > 0, axis=1)
