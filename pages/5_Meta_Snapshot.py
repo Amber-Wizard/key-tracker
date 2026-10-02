@@ -136,7 +136,7 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 def get_meta_games():
     with st.spinner('Getting games...'):
-        recent_games = database.get_all_recent_games(games=500)
+        recent_games = database.get_all_recent_games(games=50000)
         recent_games = recent_games[recent_games['Format'].apply(lambda x: 'Archon' in x)]
         st.session_state.recent_games = recent_games
 
