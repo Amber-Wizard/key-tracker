@@ -140,7 +140,17 @@ def get_meta_games():
         recent_games = recent_games[recent_games['Format'].apply(lambda x: 'Archon' in x)]
         st.session_state.recent_games = recent_games
 
+if 'recent_games' in st.session_state:
+    csv = st.session_state.recent_games.to_csv(index=False)
 
+    st.download_button(
+        label="Download Recent Games",
+        data=csv,
+        file_name="recent_games.csv",
+        mime="text/csv"
+    )
+
+"""
 def process_meta_games():
     with st.spinner('Processing games...'):
         st.session_state.meta_snapshot = {}
@@ -473,7 +483,7 @@ for i, (idx, row) in enumerate(trimmed_card_df.iterrows()):
 
                 card_cols[col_idx].markdown(f'<b class="{font_style}">{formatting.transform_pct_string(winrate, extra_padding=1)}</b>', unsafe_allow_html=True)
 
-
+"""
 
 
 
